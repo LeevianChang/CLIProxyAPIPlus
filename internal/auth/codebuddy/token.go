@@ -45,7 +45,9 @@ type CodeBuddyTokenStorage struct {
 //   - error: An error if the operation fails, nil otherwise
 func (s *CodeBuddyTokenStorage) SaveTokenToFile(authFilePath string) error {
 	misc.LogSavingCredentials(authFilePath)
-	s.Type = "codebuddy"
+	if s.Type == "" {
+		s.Type = "codebuddy"
+	}
 	if err := os.MkdirAll(filepath.Dir(authFilePath), 0700); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}

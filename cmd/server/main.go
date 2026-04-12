@@ -99,6 +99,7 @@ func main() {
 	var kilocodeLogin bool
 	var clineLogin bool
 	var codeBuddyLogin bool
+	var codeBuddyIntlLogin bool
 	var projectID string
 	var vertexImport string
 	var vertexImportPrefix string
@@ -141,6 +142,7 @@ func main() {
 	flag.BoolVar(&kilocodeLogin, "kilocode-login", false, "Login to Kilocode using device flow")
 	flag.BoolVar(&clineLogin, "cline-login", false, "Login to Cline using OAuth")
 	flag.BoolVar(&codeBuddyLogin, "codebuddy-login", false, "Login to CodeBuddy using browser OAuth flow")
+	flag.BoolVar(&codeBuddyIntlLogin, "codebuddy-intl-login", false, "Login to CodeBuddy International (codebuddy.ai) using browser OAuth flow")
 	flag.StringVar(&projectID, "project_id", "", "Project ID (Gemini only, not required)")
 	flag.StringVar(&configPath, "config", DefaultConfigPath, "Configure File Path")
 	flag.StringVar(&vertexImport, "vertex-import", "", "Import Vertex service account key JSON file")
@@ -534,8 +536,12 @@ func main() {
 		// Handle Kilocode login
 		cmd.DoKilocodeLogin(cfg, options)
 	} else if codeBuddyLogin {
-		// Handle CodeBuddy login
 		cmd.DoCodeBuddyLogin(cfg, options)
+	} else if codeBuddyIntlLogin {
+		cmd.DoCodeBuddyIntlLogin(cfg, options)
+	} else if clineLogin {
+		// Handle Cline login
+		cmd.DoClineLogin(cfg, options)
 	} else if codexLogin {
 		// Handle Codex login
 		cmd.DoCodexLogin(cfg, options)

@@ -217,6 +217,85 @@ func GetCodeBuddyModels() []*ModelInfo {
 	}
 }
 
+// GetCodeBuddyIntlModels returns the available models for CodeBuddy International (codebuddy.ai).
+func GetCodeBuddyIntlModels() []*ModelInfo {
+	now := int64(1748044800)
+	return []*ModelInfo{
+		{
+			ID:                  "auto",
+			Object:              "model",
+			Created:             now,
+			OwnedBy:             "tencent",
+			Type:                "codebuddy-intl",
+			DisplayName:         "Auto",
+			Description:         "Automatic model selection via CodeBuddy International",
+			ContextLength:       128000,
+			MaxCompletionTokens: 32768,
+			SupportedEndpoints:  []string{"/chat/completions"},
+		},
+		{
+			ID:                  "claude-sonnet-4-6",
+			Object:              "model",
+			Created:             now,
+			OwnedBy:             "anthropic",
+			Type:                "codebuddy-intl",
+			DisplayName:         "Claude Sonnet 4.6",
+			Description:         "Claude Sonnet 4.6 via CodeBuddy International",
+			ContextLength:       200000,
+			MaxCompletionTokens: 64000,
+			SupportedEndpoints:  []string{"/chat/completions"},
+		},
+		{
+			ID:                  "claude-sonnet-4-5",
+			Object:              "model",
+			Created:             now,
+			OwnedBy:             "anthropic",
+			Type:                "codebuddy-intl",
+			DisplayName:         "Claude Sonnet 4.5",
+			Description:         "Claude Sonnet 4.5 via CodeBuddy International",
+			ContextLength:       200000,
+			MaxCompletionTokens: 64000,
+			SupportedEndpoints:  []string{"/chat/completions"},
+		},
+		{
+			ID:                  "claude-haiku-4-5",
+			Object:              "model",
+			Created:             now,
+			OwnedBy:             "anthropic",
+			Type:                "codebuddy-intl",
+			DisplayName:         "Claude Haiku 4.5",
+			Description:         "Claude Haiku 4.5 via CodeBuddy International",
+			ContextLength:       200000,
+			MaxCompletionTokens: 64000,
+			SupportedEndpoints:  []string{"/chat/completions"},
+		},
+		{
+			ID:                  "gemini-2.5-pro",
+			Object:              "model",
+			Created:             now,
+			OwnedBy:             "google",
+			Type:                "codebuddy-intl",
+			DisplayName:         "Gemini 2.5 Pro",
+			Description:         "Gemini 2.5 Pro via CodeBuddy International",
+			ContextLength:       1048576,
+			MaxCompletionTokens: 65536,
+			SupportedEndpoints:  []string{"/chat/completions"},
+		},
+		{
+			ID:                  "gpt-4o",
+			Object:              "model",
+			Created:             now,
+			OwnedBy:             "openai",
+			Type:                "codebuddy-intl",
+			DisplayName:         "GPT-4o",
+			Description:         "GPT-4o via CodeBuddy International",
+			ContextLength:       128000,
+			MaxCompletionTokens: 16384,
+			SupportedEndpoints:  []string{"/chat/completions"},
+		},
+	}
+}
+
 // cloneModelInfos returns a shallow copy of the slice with each element deep-cloned.
 func cloneModelInfos(models []*ModelInfo) []*ModelInfo {
 	if len(models) == 0 {
@@ -280,6 +359,8 @@ func GetStaticModelDefinitionsByChannel(channel string) []*ModelInfo {
 		return GetAntigravityModels()
 	case "codebuddy":
 		return GetCodeBuddyModels()
+	case "codebuddy-intl":
+		return GetCodeBuddyIntlModels()
 	case "cursor":
 		return GetCursorModels()
 	default:
@@ -323,6 +404,7 @@ func LookupStaticModelInfo(modelID string) *ModelInfo {
 		GetKiloModels(),
 		GetAmazonQModels(),
 		GetCodeBuddyModels(),
+		GetCodeBuddyIntlModels(),
 		GetCursorModels(),
 	}
 	for _, models := range allModels {

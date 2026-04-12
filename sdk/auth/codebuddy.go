@@ -90,6 +90,7 @@ func (a CodeBuddyAuthenticator) Login(ctx context.Context, cfg *config.Config, o
 			"user_id":       storage.UserID,
 			"domain":        storage.Domain,
 			"expires_in":    storage.ExpiresIn,
+			"base_url":      codebuddy.BaseURL,
 		},
 	}, nil
 }

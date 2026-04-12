@@ -24,7 +24,9 @@ func newAuthManager() *sdkAuth.Manager {
 		sdkAuth.NewKiloAuthenticator(),
 		sdkAuth.NewGitLabAuthenticator(),
 		sdkAuth.NewCodeBuddyAuthenticator(),
+		sdkAuth.NewCodeBuddyIntlAuthenticator(),
 		sdkAuth.NewCursorAuthenticator(),
+		sdkAuth.NewClineAuthenticator(),
 	)
 	return manager
 }

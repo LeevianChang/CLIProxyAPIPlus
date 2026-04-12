@@ -455,7 +455,9 @@ func (s *Service) ensureExecutorsForAuthWithMode(a *coreauth.Auth, forceReplace 
 	case "kilocode":
 		s.coreManager.RegisterExecutor(executor.NewKilocodeExecutor(s.cfg))
 	case "codebuddy":
-		s.coreManager.RegisterExecutor(executor.NewCodeBuddyExecutor(s.cfg))	
+		s.coreManager.RegisterExecutor(executor.NewCodeBuddyExecutor(s.cfg))
+	case "codebuddy-intl":
+		s.coreManager.RegisterExecutor(executor.NewCodeBuddyIntlExecutor(s.cfg))	
 	case "gitlab":
 		s.coreManager.RegisterExecutor(executor.NewGitLabExecutor(s.cfg))
 	default:
