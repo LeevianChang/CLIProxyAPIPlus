@@ -1,40 +1,66 @@
 #!/bin/bash
 
 # CLIProxyAPIPlus - Installer
-# Cross-platform source-to-production deployment
+# Downloads pre-built binaries from GitHub Releases
 
 set -euo pipefail
 
 SCRIPT_NAME="cliproxyapi-installer"
-REPO_URL="https://github.com/HsnSaboor/CLIProxyAPIPlus.git"
+REPO_OWNER="HsnSaboor"
+REPO_NAME="CLIProxyAPIPlus"
+API_URL="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest"
 
 detect_os() {
     case "$(uname -s)" in
         Linux*)
-            if [[ -d "$HOME/.local/share" ]]; then
-                SOURCE_DIR="$HOME/.local/share/cliproxyapi"
-            else
-                SOURCE_DIR="$HOME/.cliproxyapi-source"
-            fi
-            PROD_DIR="$HOME/.cliproxyapi"
-            AUTH_DIR="$HOME/.cli-proxy-api"
+            OS="linux"
             ;;
         Darwin*)
-            SOURCE_DIR="$HOME/Library/Application Support/cliproxyapi"
-            PROD_DIR="$HOME/cliproxyapi"
-            AUTH_DIR="$HOME/.cli-proxy-api"
+            OS="darwin"
             ;;
         MINGW*|MSYS*|CYGWIN*)
-            SOURCE_DIR="$LOCALAPPDATA/cliproxyapi"
-            PROD_DIR="$LOCALAPPDATA/cliproxyapi"
-            AUTH_DIR="$APPDATA/cli-proxy-api"
+            OS="windows"
             ;;
         *)
-            SOURCE_DIR="$HOME/.local/share/cliproxyapi"
-            PROD_DIR="$HOME/.cliproxyapi"
-            AUTH_DIR="$HOME/.cli-proxy-api"
+            log_error "Unsupported OS: $(uname -s)"
+            exit 1
             ;;
     esac
+
+    case "$(uname -m)" in
+        x86_64|amd64)
+            ARCH="amd64"
+            ;;
+        arm64|aarch64)
+            ARCH="arm64"
+            ;;
+        *)
+            log_error "Unsupported architecture: $(uname -m)"
+            exit 1
+            ;;
+    esac
+}
+
+set_paths() {
+    case "$OS" in
+        linux)
+            if [[ -d "$HOME/.local/share" ]]; then
+                CACHE_DIR="$HOME/.cache/cliproxyapi"
+            else
+                CACHE_DIR="$HOME/.cliproxyapi-cache"
+            fi
+            PROD_DIR="$HOME/.cliproxyapi"
+            ;;
+        darwin)
+            CACHE_DIR="$HOME/Library/Caches/cliproxyapi"
+            PROD_DIR="$HOME/cliproxyapi"
+            ;;
+        windows)
+            CACHE_DIR="$LOCALAPPDATA/cliproxyapi"
+            PROD_DIR="$LOCALAPPDATA/cliproxyapi"
+            ;;
+    esac
+    AUTH_DIR="$HOME/.cli-proxy-api"
 }
 
 RED='\033[0;31m'
@@ -51,10 +77,8 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 log_step() { echo -e "${CYAN}[STEP]${NC} $1"; }
 
 is_service_running() {
-    if [[ "$(uname -s)" == "Linux" ]]; then
+    if [[ "$OS" == "linux" ]]; then
         systemctl --user is-active --quiet cliproxyapi.service 2>/dev/null
-    elif [[ "$(uname -s)" == "Darwin" ]]; then
-        pgrep -f "cli-proxy-api" >/dev/null 2>&1
     else
         pgrep -f "cli-proxy-api" >/dev/null 2>&1
     fi
@@ -63,7 +87,7 @@ is_service_running() {
 stop_service() {
     if is_service_running; then
         log_info "Stopping service..."
-        if [[ "$(uname -s)" == "Linux" ]]; then
+        if [[ "$OS" == "linux" ]]; then
             systemctl --user stop cliproxyapi.service 2>/dev/null || true
         fi
         pkill -f "cli-proxy-api" 2>/dev/null || true
@@ -90,52 +114,74 @@ check_api_keys() {
     return 1
 }
 
-git_clone_or_update() {
-    local force_update="${1:-false}"
+get_latest_release() {
+    log_step "Fetching latest release..."
 
-    if [[ -d "$SOURCE_DIR/.git" ]]; then
-        if [[ "$force_update" == "true" ]]; then
-            log_step "Updating source..."
-            cd "$SOURCE_DIR"
-            git fetch origin main
-            git reset --hard origin/main
-            log_success "Source updated"
-        else
-            log_info "Using existing source at $SOURCE_DIR"
-        fi
-    else
-        log_step "Cloning repository..."
-        mkdir -p "$(dirname "$SOURCE_DIR")"
-        git clone --depth 1 "$REPO_URL" "$SOURCE_DIR"
-        log_success "Repository cloned"
-    fi
-}
+    local response
+    response=$(curl -fSL "$API_URL" 2>/dev/null) || {
+        log_error "Failed to fetch release info. Check network."
+        exit 1
+    }
 
-source_build() {
-    log_step "Building from source..."
-
-    if ! command -v go >/dev/null 2>&1; then
-        log_error "Go is not installed. Install it first: https://go.dev/dl/"
+    VERSION=$(echo "$response" | grep -o '"tag_name": "[^"]*"' | cut -d'"' -f4)
+    if [[ -z "$VERSION" ]]; then
+        log_error "Could not determine latest version"
         exit 1
     fi
 
-    cd "$SOURCE_DIR"
-    go build -o cli-proxy-api.new ./cmd/server
+    log_success "Latest version: $VERSION"
+}
 
-    log_info "Running pre-flight check..."
-    if ! ./cli-proxy-api.new --help >/dev/null 2>&1; then
-        log_error "BUILD VERIFICATION FAILED."
-        rm -f cli-proxy-api.new
+download_and_verify() {
+    log_step "Downloading release..."
+
+    mkdir -p "$CACHE_DIR"
+    cd "$CACHE_DIR"
+
+    local ext="tar.gz"
+    [[ "$OS" == "windows" ]] && ext="zip"
+
+    local filename="CLIProxyAPIPlus_${VERSION}_${OS}_${ARCH}.${ext}"
+    local url="https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download/${VERSION}/${filename}"
+
+    log_info "Downloading $filename..."
+    curl -fSL "$url" -o "$filename" || {
+        log_error "Failed to download $filename"
+        exit 1
+    }
+
+    log_info "Downloading checksums.txt..."
+    local checksum_url="https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download/${VERSION}/checksums.txt"
+    curl -fSL "$checksum_url" -o "checksums.txt" || {
+        log_error "Failed to download checksums"
+        exit 1
+    }
+
+    log_info "Verifying checksum..."
+    local expected_hash
+    expected_hash=$(grep "$filename" "checksums.txt" | awk '{print $1}')
+    local actual_hash
+    actual_hash=$(sha256sum "$filename" | awk '{print $1}')
+
+    if [[ "$expected_hash" != "$actual_hash" ]]; then
+        log_error "Checksum mismatch!"
+        log_error "Expected: $expected_hash"
+        log_error "Actual:   $actual_hash"
         exit 1
     fi
 
-    log_success "Build verified"
+    log_success "Checksum verified"
 }
 
-safe_deploy() {
-    log_step "Atomic Deployment"
+extract_and_deploy() {
+    log_step "Extracting..."
 
-    cd "$SOURCE_DIR"
+    cd "$CACHE_DIR"
+
+    local ext="tar.gz"
+    [[ "$OS" == "windows" ]] && ext="zip"
+
+    local filename="CLIProxyAPIPlus_${VERSION}_${OS}_${ARCH}.${ext}"
 
     mkdir -p "$PROD_DIR/config_backup"
 
@@ -144,7 +190,6 @@ safe_deploy() {
         local ts
         ts=$(date +"%Y%m%d_%H%M%S")
         cp "$PROD_DIR/config.yaml" "$PROD_DIR/config_backup/config_${ts}.yaml"
-        log_success "Config backed up"
     fi
 
     log_info "Backing up auth tokens..."
@@ -152,34 +197,30 @@ safe_deploy() {
         local token_ts
         token_ts=$(date +"%Y%m%d_%H%M")
         tar -czf "$PROD_DIR/config_backup/tokens_${token_ts}.tar.gz" -C "$AUTH_DIR" . 2>/dev/null || true
-        log_success "Tokens backed up"
     fi
 
-    if [[ ! -f "$PROD_DIR/config.yaml" ]]; then
-        if [[ -f "$SOURCE_DIR/config.example.yaml" ]]; then
-            mkdir -p "$PROD_DIR"
-            cp "$SOURCE_DIR/config.example.yaml" "$PROD_DIR/config.yaml"
-            local key1 key2
-            key1=$(generate_api_key)
-            key2=$(generate_api_key)
-            sed -i "s/\"your-api-key-1\"/\"$key1\"/g" "$PROD_DIR/config.yaml" 2>/dev/null || true
-            sed -i "s/\"your-api-key-2\"/\"$key2\"/g" "$PROD_DIR/config.yaml" 2>/dev/null || true
-            log_success "Created config.yaml with generated API keys"
-        fi
+    if [[ "$OS" == "windows" ]]; then
+        unzip -o "$filename" -d "$PROD_DIR" >/dev/null
+    else
+        tar -xzf "$filename" -C "$PROD_DIR"
     fi
 
     if [[ -f "$PROD_DIR/cli-proxy-api" ]]; then
         mv "$PROD_DIR/cli-proxy-api" "$PROD_DIR/cli-proxy-api.old"
     fi
 
-    mv cli-proxy-api.new "$PROD_DIR/cli-proxy-api"
+    if [[ -f "$PROD_DIR/CLIProxyAPIPlus_${VERSION}_${OS}_${ARCH}/cli-proxy-api" ]]; then
+        mv "$PROD_DIR/CLIProxyAPIPlus_${VERSION}_${OS}_${ARCH}/cli-proxy-api" "$PROD_DIR/cli-proxy-api"
+        rm -rf "$PROD_DIR/CLIProxyAPIPlus_${VERSION}_${OS}_${ARCH}"
+    fi
+
     chmod +x "$PROD_DIR/cli-proxy-api"
     log_success "Binary deployed"
 
     create_systemd_service
 
-    log_info "Restarting service..."
-    if [[ "$(uname -s)" == "Linux" ]]; then
+    log_info "Starting service..."
+    if [[ "$OS" == "linux" ]]; then
         systemctl --user restart cliproxyapi.service
     fi
     sleep 3
@@ -194,7 +235,7 @@ safe_deploy() {
 }
 
 create_systemd_service() {
-    if [[ "$(uname -s)" != "Linux" ]]; then
+    if [[ "$OS" != "linux" ]]; then
         return
     fi
 
@@ -221,17 +262,39 @@ EOF
     systemctl --user daemon-reload || true
 }
 
+create_config() {
+    if [[ -f "$PROD_DIR/config.yaml" ]]; then
+        return
+    fi
+
+    local example_config="$CACHE_DIR/config.example.yaml"
+    if [[ -f "$example_config" ]]; then
+        cp "$example_config" "$PROD_DIR/config.yaml"
+        local key1 key2
+        key1=$(generate_api_key)
+        key2=$(generate_api_key)
+        sed -i "s/\"your-api-key-1\"/\"$key1\"/g" "$PROD_DIR/config.yaml" 2>/dev/null || true
+        sed -i "s/\"your-api-key-2\"/\"$key2\"/g" "$PROD_DIR/config.yaml" 2>/dev/null || true
+        log_success "Created config.yaml with generated API keys"
+    else
+        log_warning "config.example.yaml not in release, skipping config creation"
+    fi
+}
+
 show_status() {
     echo
     echo "CLIProxyAPIPlus - Status"
     echo "========================"
-    echo "Source Dir:  $SOURCE_DIR"
+    echo "Cache Dir:   $CACHE_DIR"
     echo "Install Dir: $PROD_DIR"
     echo "Auth Dir:    $AUTH_DIR"
 
-    if [[ -d "$SOURCE_DIR/.git" ]]; then
-        cd "$SOURCE_DIR"
-        echo "Git Commit: $(git rev-parse --short HEAD 2>/dev/null || echo 'N/A')"
+    if [[ -f "$CACHE_DIR/checksums.txt" ]]; then
+        local version_line
+        version_line=$(grep "CLIProxyAPIPlus" "$CACHE_DIR/checksums.txt" | head -1 | awk '{print $2}' || echo "N/A")
+        local version
+        version=$(echo "$version_line" | grep -oP '_\K[0-9]{8}-[0-9]{4}' || echo "unknown")
+        echo "Version:    $version"
     fi
 
     [[ -f "$PROD_DIR/cli-proxy-api" ]] && echo "Binary:      Present" || echo "Binary:      Missing"
@@ -257,12 +320,12 @@ show_quick_start() {
 }
 
 install_or_upgrade() {
-    local force_update="${1:-false}"
-
     detect_os
-    git_clone_or_update "$force_update"
-    source_build
-    safe_deploy
+    set_paths
+    get_latest_release
+    download_and_verify
+    create_config
+    extract_and_deploy
 
     if [[ ! -f "$PROD_DIR/config.yaml" ]] || ! check_api_keys; then
         echo
@@ -286,19 +349,17 @@ uninstall() {
 
     stop_service
     rm -rf "$PROD_DIR"
-    rm -rf "$SOURCE_DIR"
+    rm -rf "$CACHE_DIR"
     log_success "Uninstalled"
 }
 
 main() {
     detect_os
+    set_paths
 
     case "${1:-install}" in
-        install)
-            install_or_upgrade false
-            ;;
-        upgrade)
-            install_or_upgrade true
+        install|upgrade)
+            install_or_upgrade
             ;;
         status)
             show_status
@@ -313,14 +374,13 @@ CLIProxyAPIPlus - Installer
 Usage: $SCRIPT_NAME [command]
 
 Commands:
-  install         Clone (if needed) and install
-  upgrade         Pull latest and reinstall
-  status          Show installation status
-  uninstall       Remove installation
-  -h, --help     This help
+  install, upgrade   Download latest release and install (default)
+  status             Show installation status
+  uninstall          Remove installation
+  -h, --help        This help
 
 Paths:
-  Source:  $SOURCE_DIR
+  Cache:   $CACHE_DIR
   Binary:  $PROD_DIR
   Auth:    $AUTH_DIR
 
