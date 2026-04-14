@@ -267,7 +267,13 @@ create_config() {
         return
     fi
 
-    local example_config="$CACHE_DIR/config.example.yaml"
+    # Look in extracted folder (before binary is moved out)
+    local extracted_dir="$PROD_DIR/CLIProxyAPIPlus_${VERSION}_${OS}_${ARCH}"
+    local example_config="$extracted_dir/config.example.yaml"
+
+    # Fallback to cache if already extracted and moved
+    [[ ! -f "$example_config" ]] && example_config="$CACHE_DIR/config.example.yaml"
+
     if [[ -f "$example_config" ]]; then
         cp "$example_config" "$PROD_DIR/config.yaml"
         local key1 key2
@@ -277,7 +283,7 @@ create_config() {
         sed -i "s/\"your-api-key-2\"/\"$key2\"/g" "$PROD_DIR/config.yaml" 2>/dev/null || true
         log_success "Created config.yaml with generated API keys"
     else
-        log_warning "config.example.yaml not in release, skipping config creation"
+        log_warning "config.example.yaml not found, skipping config creation"
     fi
 }
 
@@ -289,12 +295,10 @@ show_status() {
     echo "Install Dir: $PROD_DIR"
     echo "Auth Dir:    $AUTH_DIR"
 
-    if [[ -f "$CACHE_DIR/checksums.txt" ]]; then
-        local version_line
-        version_line=$(grep "CLIProxyAPIPlus" "$CACHE_DIR/checksums.txt" | head -1 | awk '{print $2}' || echo "N/A")
-        local version
-        version=$(echo "$version_line" | grep -oP '_\K[0-9]{8}-[0-9]{4}' || echo "unknown")
-        echo "Version:    $version"
+    local version_line
+    version_line=$(grep "CLIProxyAPIPlus" "$CACHE_DIR/checksums.txt" 2>/dev/null | head -1)
+    if [[ -n "$version_line" ]]; then
+        echo "Version:    $(echo "$version_line" | sed 's/.*CLIProxyAPIPlus_\([0-9-]*\).*/\1/')"
     fi
 
     [[ -f "$PROD_DIR/cli-proxy-api" ]] && echo "Binary:      Present" || echo "Binary:      Missing"
@@ -324,6 +328,16 @@ install_or_upgrade() {
     set_paths
     get_latest_release
     download_and_verify
+
+    # Extract just to get config.example.yaml
+    log_step "Preparing config..."
+    cd "$CACHE_DIR"
+    if [[ "$OS" == "windows" ]]; then
+        unzip -o "CLIProxyAPIPlus_${VERSION}_${OS}_${ARCH}.zip" -d "$PROD_DIR" >/dev/null
+    else
+        tar -xzf "CLIProxyAPIPlus_${VERSION}_${OS}_${ARCH}.tar.gz" -C "$PROD_DIR"
+    fi
+
     create_config
     extract_and_deploy
 
