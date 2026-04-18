@@ -77,8 +77,8 @@ func TestManager_ShouldRetryAfterError_UsesOAuthModelAliasForCooldown(t *testing
 		},
 	})
 
-	routeModel := "coder-model"
-	upstreamModel := "qwen3.6-plus"
+	routeModel := "pool-model"
+	upstreamModel := "deepseek-v3.1"
 	next := time.Now().Add(5 * time.Second)
 
 	auth := &Auth{

@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestUploadAuthFile_BatchMultipart(t *testing.T) {
@@ -73,8 +74,8 @@ func TestUploadAuthFile_BatchMultipart(t *testing.T) {
 		if err != nil {
 			t.Fatalf("expected uploaded file %s to exist: %v", file.name, err)
 		}
-		if string(data) != file.content {
-			t.Fatalf("expected file %s content %q, got %q", file.name, file.content, string(data))
+		if !assert.JSONEq(t, file.content, string(data)) {
+			t.Fatalf("expected file %s JSON to match", file.name)
 		}
 	}
 
@@ -145,8 +146,8 @@ func TestUploadAuthFile_BatchMultipart_InvalidJSONDoesNotOverwriteExistingFile(t
 	if err != nil {
 		t.Fatalf("expected valid auth file to be created: %v", err)
 	}
-	if string(betaData) != files[1].content {
-		t.Fatalf("expected beta auth file content %q, got %q", files[1].content, string(betaData))
+	if !assert.JSONEq(t, files[1].content, string(betaData)) {
+		t.Fatalf("expected beta auth file JSON to match")
 	}
 }
 

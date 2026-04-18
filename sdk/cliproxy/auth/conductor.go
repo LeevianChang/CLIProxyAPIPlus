@@ -735,12 +735,17 @@ func (m *Manager) shouldCountAttemptBudget(err error, currentProvider string, pr
 	if err == nil {
 		return true
 	}
-	if statusCodeFromError(err) != http.StatusTooManyRequests {
+	status := statusCodeFromError(err)
+	if status != http.StatusTooManyRequests && status != http.StatusGatewayTimeout {
 		return true
 	}
 	m.mu.RLock()
 	remainingProviders := countRemainingProviderOptions(currentProvider, providers, tried, m.auths)
 	m.mu.RUnlock()
+	if remainingProviders > 0 {
+		log.Debugf("provider %s failed with upstream status %d; retrying with another untried provider", currentProvider, status)
+		return false
+	}
 	return remainingProviders == 0
 }
 

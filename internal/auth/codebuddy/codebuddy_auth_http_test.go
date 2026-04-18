@@ -14,6 +14,7 @@ func newTestAuth(serverURL string) *CodeBuddyAuth {
 	return &CodeBuddyAuth{
 		httpClient: http.DefaultClient,
 		baseURL:    serverURL,
+		authType:   "codebuddy",
 	}
 }
 
