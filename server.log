@@ -1,0 +1,520 @@
+CLIProxyAPI Version: dev, Commit: none, BuiltAt: unknown
+[2026-04-29 11:42:55] [--------] [info ] [main.go:488] CLIProxyAPI Version: dev, Commit: none, BuiltAt: unknown
+[2026-04-29 11:42:55] [--------] [info ] [antigravity_version.go:51] periodic antigravity version refresh started (interval=3h0m0s)
+[2026-04-29 11:42:55] [--------] [info ] [refresh_manager.go:75] refresh manager: initialized with base directory /Users/leevian/.cli-proxy-api
+[2026-04-29 11:42:55] [--------] [info ] [refresh_manager.go:98] refresh manager: background refresh started
+[2026-04-29 11:42:55] [--------] [info ] [model_updater.go:137] startup model refresh completed from https://raw.githubusercontent.com/router-for-me/models/refs/heads/main/models.json, changes detected for providers: [codex kimi antigravity]
+[2026-04-29 11:42:55] [--------] [info ] [model_updater.go:91] periodic model refresh started (interval=3h0m0s)
+[2026-04-29 11:42:55] [--------] [info ] [signature_cache.go:227] antigravity bypass signature validation: basic mode (R/E + 0x12)
+[2026-04-29 11:42:55] [--------] [info ] [server.go:531] management routes registered after secret key configuration
+[2026-04-29 11:42:55] [--------] [info ] [server.go:311] Kiro OAuth Web routes registered at /v0/oauth/kiro/*
+[2026-04-29 11:42:55] [--------] [info ] [service.go:617] re-registered models for 1 auth(s) due to model catalog changes: [codex kimi antigravity]
+[2026-04-29 11:42:55] [--------] [info ] [antigravity_version.go:76] fetched latest antigravity version
+API server started successfully on: :8317
+server clients and configuration updated: 1 clients (1 auth entries + 0 Gemini API keys + 0 Claude API keys + 0 Codex keys + 0 Vertex-compat + 0 OpenAI-compat)
+[2026-04-29 11:42:56] [--------] [info ] [clients.go:132] full client load complete - 1 clients (1 auth files + 0 Gemini API keys + 0 Vertex API keys + 0 Claude API keys + 0 Codex keys + 0 OpenAI-compat)
+[2026-04-29 11:42:56] [--------] [info ] [service.go:728] file watcher started for config and auth directory changes
+[2026-04-29 11:42:56] [--------] [info ] [service.go:734] core auth auto-refresh started (interval=15m0s)
+[2026-04-29 11:42:57] [--------] [warn ] [antigravity_executor.go:1889] antigravity executor: ensure project id failed: request failed with status 403: {
+  "error": {
+    "code": 403,
+    "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+    "errors": [
+      {
+        "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+        "domain": "global",
+        "reason": "forbidden"
+      }
+    ],
+    "status": "PERMISSION_DENIED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "domain": "cloudcode-pa.googleapis.com",
+        "metadata": {
+          "uiMessage": "true",
+          "appeal_url_link_text": "Submit Appeal",
+          "appeal_url": "https://forms.gle/hGzM9MEUv2azZsrb9"
+        }
+      }
+    ]
+  }
+}
+[2026-04-29 11:42:57] [--------] [info ] [antigravity_executor.go:1890] antigravity executor: blocking auth antigravity-leevian1993@gmail.com.json for 30 minutes due to project id failure
+[2026-04-29 11:42:57] [--------] [info ] [events.go:152] auth file changed (WRITE): antigravity-leevian1993@gmail.com.json, processing incrementally
+[2026-04-29 11:51:07] [--------] [info ] [gin_logger.go:284] 200 |          24ms |             ::1 | GET     "/management.html"
+[2026-04-29 11:51:07] [--------] [info ] [gin_logger.go:284] 200 |           7ms |             ::1 | GET     "/v0/management/config"
+[2026-04-29 11:51:09] [--------] [info ] [gin_logger.go:284] 200 |           1ms |             ::1 | GET     "/v0/management/auth-files"
+[2026-04-29 11:51:09] [--------] [info ] [gin_logger.go:284] 200 |           1ms |             ::1 | GET     "/v0/management/config.yaml"
+[2026-04-29 11:51:23] [--------] [info ] [gin_logger.go:284] 200 |            0s |             ::1 | GET     "/v0/management/auth-files"
+[2026-04-29 11:51:23] [--------] [info ] [gin_logger.go:284] 200 |            0s |             ::1 | GET     "/v0/management/config.yaml"
+[2026-04-29 14:42:55] [--------] [info ] [antigravity_version.go:76] fetched latest antigravity version
+[2026-04-29 14:42:56] [--------] [info ] [model_updater.go:133] periodic model refresh completed from https://raw.githubusercontent.com/router-for-me/models/refs/heads/main/models.json, no changes detected
+[2026-04-29 17:42:56] [--------] [info ] [antigravity_version.go:76] fetched latest antigravity version
+[2026-04-29 17:42:56] [--------] [info ] [model_updater.go:133] periodic model refresh completed from https://raw.githubusercontent.com/router-for-me/models/refs/heads/main/models.json, no changes detected
+[2026-04-29 17:57:58] [--------] [warn ] [antigravity_executor.go:1889] antigravity executor: ensure project id failed: request failed with status 403: {
+  "error": {
+    "code": 403,
+    "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+    "errors": [
+      {
+        "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+        "domain": "global",
+        "reason": "forbidden"
+      }
+    ],
+    "status": "PERMISSION_DENIED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "domain": "cloudcode-pa.googleapis.com",
+        "metadata": {
+          "uiMessage": "true",
+          "appeal_url_link_text": "Submit Appeal",
+          "appeal_url": "https://forms.gle/hGzM9MEUv2azZsrb9"
+        }
+      }
+    ]
+  }
+}
+[2026-04-29 17:57:58] [--------] [info ] [antigravity_executor.go:1890] antigravity executor: blocking auth antigravity-leevian1993@gmail.com.json for 30 minutes due to project id failure
+[2026-04-29 17:57:58] [--------] [info ] [events.go:152] auth file changed (WRITE): antigravity-leevian1993@gmail.com.json, processing incrementally
+[2026-04-29 19:27:58] [--------] [warn ] [antigravity_executor.go:1889] antigravity executor: ensure project id failed: request failed with status 403: {
+  "error": {
+    "code": 403,
+    "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+    "errors": [
+      {
+        "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+        "domain": "global",
+        "reason": "forbidden"
+      }
+    ],
+    "status": "PERMISSION_DENIED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "domain": "cloudcode-pa.googleapis.com",
+        "metadata": {
+          "uiMessage": "true",
+          "appeal_url_link_text": "Submit Appeal",
+          "appeal_url": "https://forms.gle/hGzM9MEUv2azZsrb9"
+        }
+      }
+    ]
+  }
+}
+[2026-04-29 19:27:58] [--------] [info ] [antigravity_executor.go:1890] antigravity executor: blocking auth antigravity-leevian1993@gmail.com.json for 30 minutes due to project id failure
+[2026-04-29 19:27:58] [--------] [info ] [events.go:152] auth file changed (WRITE): antigravity-leevian1993@gmail.com.json, processing incrementally
+[2026-04-29 20:42:55] [--------] [info ] [antigravity_version.go:76] fetched latest antigravity version
+[2026-04-29 20:42:56] [--------] [info ] [model_updater.go:133] periodic model refresh completed from https://raw.githubusercontent.com/router-for-me/models/refs/heads/main/models.json, no changes detected
+[2026-04-29 20:42:58] [--------] [warn ] [antigravity_executor.go:1889] antigravity executor: ensure project id failed: request failed with status 403: {
+  "error": {
+    "code": 403,
+    "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+    "errors": [
+      {
+        "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+        "domain": "global",
+        "reason": "forbidden"
+      }
+    ],
+    "status": "PERMISSION_DENIED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "domain": "cloudcode-pa.googleapis.com",
+        "metadata": {
+          "uiMessage": "true",
+          "appeal_url_link_text": "Submit Appeal",
+          "appeal_url": "https://forms.gle/hGzM9MEUv2azZsrb9"
+        }
+      }
+    ]
+  }
+}
+[2026-04-29 20:42:58] [--------] [info ] [antigravity_executor.go:1890] antigravity executor: blocking auth antigravity-leevian1993@gmail.com.json for 30 minutes due to project id failure
+[2026-04-29 20:42:58] [--------] [info ] [events.go:152] auth file changed (WRITE): antigravity-leevian1993@gmail.com.json, processing incrementally
+[2026-04-29 22:12:57] [--------] [warn ] [antigravity_executor.go:1889] antigravity executor: ensure project id failed: request failed with status 403: {
+  "error": {
+    "code": 403,
+    "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+    "errors": [
+      {
+        "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+        "domain": "global",
+        "reason": "forbidden"
+      }
+    ],
+    "status": "PERMISSION_DENIED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "domain": "cloudcode-pa.googleapis.com",
+        "metadata": {
+          "uiMessage": "true",
+          "appeal_url_link_text": "Submit Appeal",
+          "appeal_url": "https://forms.gle/hGzM9MEUv2azZsrb9"
+        }
+      }
+    ]
+  }
+}
+[2026-04-29 22:12:57] [--------] [info ] [antigravity_executor.go:1890] antigravity executor: blocking auth antigravity-leevian1993@gmail.com.json for 30 minutes due to project id failure
+[2026-04-29 22:12:57] [--------] [info ] [events.go:152] auth file changed (WRITE): antigravity-leevian1993@gmail.com.json, processing incrementally
+[2026-04-29 23:42:56] [--------] [info ] [antigravity_version.go:76] fetched latest antigravity version
+[2026-04-29 23:43:07] [--------] [info ] [model_updater.go:133] periodic model refresh completed from https://models.router-for.me/models.json, no changes detected
+[2026-04-30 00:42:57] [--------] [warn ] [antigravity_executor.go:1889] antigravity executor: ensure project id failed: request failed with status 403: {
+  "error": {
+    "code": 403,
+    "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+    "errors": [
+      {
+        "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+        "domain": "global",
+        "reason": "forbidden"
+      }
+    ],
+    "status": "PERMISSION_DENIED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "domain": "cloudcode-pa.googleapis.com",
+        "metadata": {
+          "appeal_url_link_text": "Submit Appeal",
+          "appeal_url": "https://forms.gle/hGzM9MEUv2azZsrb9",
+          "uiMessage": "true"
+        }
+      }
+    ]
+  }
+}
+[2026-04-30 00:42:57] [--------] [info ] [antigravity_executor.go:1890] antigravity executor: blocking auth antigravity-leevian1993@gmail.com.json for 30 minutes due to project id failure
+[2026-04-30 00:42:57] [--------] [info ] [events.go:152] auth file changed (WRITE): antigravity-leevian1993@gmail.com.json, processing incrementally
+[2026-04-30 01:20:07] [--------] [info ] [gin_logger.go:284] 200 |          24ms |       127.0.0.1 | GET     "/management.html"
+[2026-04-30 01:20:07] [--------] [warn ] [gin_logger.go:282] 401 |          81ms |       127.0.0.1 | GET     "/v0/management/config"
+[2026-04-30 01:20:09] [--------] [warn ] [gin_logger.go:282] 401 |          76ms |       127.0.0.1 | GET     "/v0/management/config"
+[2026-04-30 01:20:25] [--------] [info ] [gin_logger.go:284] 200 |          11ms |       127.0.0.1 | GET     "/v0/management/config"
+[2026-04-30 01:20:25] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/gemini-api-key"
+[2026-04-30 01:20:25] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/openai-compatibility"
+[2026-04-30 01:20:25] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/codex-api-key"
+[2026-04-30 01:20:25] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/claude-api-key"
+[2026-04-30 01:20:25] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/api-keys"
+[2026-04-30 01:20:25] [--------] [info ] [gin_logger.go:284] 200 |           5ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 01:20:25] [--------] [info ] [gin_logger.go:284] 200 |           3ms |       127.0.0.1 | GET     "/v1/models"
+[2026-04-30 01:20:27] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 01:20:27] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/config.yaml"
+Initializing Kiro authentication...
+Registering client...
+[2026-04-30 01:22:23] [--------] [info ] [gin_logger.go:284] 200 |           2ms |       127.0.0.1 | GET     "/v0/management/kiro-auth-url"
+Starting device authorization...
+Waiting for authorization...
+[2026-04-30 01:22:26] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/get-auth-status?state=kiro-1777483343417858000"
+[2026-04-30 01:22:29] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/get-auth-status?state=kiro-1777483343417858000"
+[2026-04-30 01:22:32] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/get-auth-status?state=kiro-1777483343417858000"
+[2026-04-30 01:22:35] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/get-auth-status?state=kiro-1777483343417858000"
+[2026-04-30 01:22:36] [--------] [info ] [gin_logger.go:284] 304 |            0s |       127.0.0.1 | GET     "/management.html"
+[2026-04-30 01:22:36] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/config"
+[2026-04-30 01:22:36] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/config"
+[2026-04-30 01:32:26] [--------] [error] [auth_files.go:4138] Token creation failed: create token failed
+[2026-04-30 01:33:44] [--------] [info ] [gin_logger.go:284] 200 |           5ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 01:33:44] [--------] [info ] [gin_logger.go:284] 200 |           5ms |       127.0.0.1 | GET     "/v0/management/oauth-excluded-models"
+[2026-04-30 01:33:44] [--------] [info ] [gin_logger.go:284] 200 |           6ms |       127.0.0.1 | GET     "/v0/management/oauth-model-alias"
+[2026-04-30 01:33:44] [--------] [info ] [gin_logger.go:284] 200 |          14ms |       127.0.0.1 | GET     "/v0/management/usage"
+[2026-04-30 01:33:44] [--------] [info ] [gin_logger.go:284] 304 |            0s |       127.0.0.1 | GET     "/management.html"
+[2026-04-30 01:33:44] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/config"
+[2026-04-30 01:33:45] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/config"
+[2026-04-30 01:33:46] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/usage"
+[2026-04-30 01:33:46] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-excluded-models"
+[2026-04-30 01:33:46] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-model-alias"
+[2026-04-30 01:33:46] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 01:33:47] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 01:33:47] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/config.yaml"
+[2026-04-30 01:33:50] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/openai-compatibility"
+[2026-04-30 01:33:50] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 01:33:50] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 01:33:51] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 01:33:51] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/config.yaml"
+[2026-04-30 01:34:41] [--------] [info ] [gin_logger.go:284] 200 |            0s |             ::1 | GET     "/"
+[2026-04-30 01:35:34] [--------] [info ] [updater.go:276] management asset updated successfully (hash=01c3d761355ad3990a2bcd09d11aebe785896be94d9b4b56d8937b16750da2f6)
+[2026-04-30 01:35:34] [--------] [info ] [gin_logger.go:284] 200 |        2.133s |       127.0.0.1 | GET     "/management.html"
+[2026-04-30 01:35:34] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/config"
+[2026-04-30 01:35:35] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 01:35:35] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/config.yaml"
+[2026-04-30 01:42:57] [--------] [warn ] [antigravity_executor.go:1889] antigravity executor: ensure project id failed: request failed with status 403: {
+  "error": {
+    "code": 403,
+    "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+    "errors": [
+      {
+        "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+        "domain": "global",
+        "reason": "forbidden"
+      }
+    ],
+    "status": "PERMISSION_DENIED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "domain": "cloudcode-pa.googleapis.com",
+        "metadata": {
+          "uiMessage": "true",
+          "appeal_url_link_text": "Submit Appeal",
+          "appeal_url": "https://forms.gle/hGzM9MEUv2azZsrb9"
+        }
+      }
+    ]
+  }
+}
+[2026-04-30 01:42:57] [--------] [info ] [antigravity_executor.go:1890] antigravity executor: blocking auth antigravity-leevian1993@gmail.com.json for 30 minutes due to project id failure
+[2026-04-30 01:42:57] [--------] [info ] [events.go:152] auth file changed (WRITE): antigravity-leevian1993@gmail.com.json, processing incrementally
+[2026-04-30 02:44:22] [--------] [warn ] [antigravity_executor.go:1889] antigravity executor: ensure project id failed: request failed with status 403: {
+  "error": {
+    "code": 403,
+    "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+    "errors": [
+      {
+        "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+        "domain": "global",
+        "reason": "forbidden"
+      }
+    ],
+    "status": "PERMISSION_DENIED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "domain": "cloudcode-pa.googleapis.com",
+        "metadata": {
+          "appeal_url_link_text": "Submit Appeal",
+          "appeal_url": "https://forms.gle/hGzM9MEUv2azZsrb9",
+          "uiMessage": "true"
+        }
+      }
+    ]
+  }
+}
+[2026-04-30 02:44:22] [--------] [info ] [antigravity_executor.go:1890] antigravity executor: blocking auth antigravity-leevian1993@gmail.com.json for 30 minutes due to project id failure
+[2026-04-30 02:44:22] [--------] [info ] [events.go:152] auth file changed (WRITE): antigravity-leevian1993@gmail.com.json, processing incrementally
+[2026-04-30 02:59:20] [--------] [info ] [antigravity_version.go:76] fetched latest antigravity version
+[2026-04-30 02:59:21] [--------] [info ] [model_updater.go:133] periodic model refresh completed from https://raw.githubusercontent.com/router-for-me/models/refs/heads/main/models.json, no changes detected
+[2026-04-30 03:44:22] [--------] [warn ] [antigravity_executor.go:1889] antigravity executor: ensure project id failed: request failed with status 403: {
+  "error": {
+    "code": 403,
+    "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+    "errors": [
+      {
+        "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+        "domain": "global",
+        "reason": "forbidden"
+      }
+    ],
+    "status": "PERMISSION_DENIED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "domain": "cloudcode-pa.googleapis.com",
+        "metadata": {
+          "appeal_url": "https://forms.gle/hGzM9MEUv2azZsrb9",
+          "uiMessage": "true",
+          "appeal_url_link_text": "Submit Appeal"
+        }
+      }
+    ]
+  }
+}
+[2026-04-30 03:44:22] [--------] [info ] [antigravity_executor.go:1890] antigravity executor: blocking auth antigravity-leevian1993@gmail.com.json for 30 minutes due to project id failure
+[2026-04-30 03:44:22] [--------] [info ] [events.go:152] auth file changed (WRITE): antigravity-leevian1993@gmail.com.json, processing incrementally
+[2026-04-30 04:50:08] [--------] [warn ] [antigravity_executor.go:1889] antigravity executor: ensure project id failed: request failed with status 403: {
+  "error": {
+    "code": 403,
+    "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+    "errors": [
+      {
+        "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+        "domain": "global",
+        "reason": "forbidden"
+      }
+    ],
+    "status": "PERMISSION_DENIED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "domain": "cloudcode-pa.googleapis.com",
+        "metadata": {
+          "appeal_url_link_text": "Submit Appeal",
+          "appeal_url": "https://forms.gle/hGzM9MEUv2azZsrb9",
+          "uiMessage": "true"
+        }
+      }
+    ]
+  }
+}
+[2026-04-30 04:50:08] [--------] [info ] [antigravity_executor.go:1890] antigravity executor: blocking auth antigravity-leevian1993@gmail.com.json for 30 minutes due to project id failure
+[2026-04-30 04:50:08] [--------] [info ] [events.go:152] auth file changed (WRITE): antigravity-leevian1993@gmail.com.json, processing incrementally
+[2026-04-30 05:50:08] [--------] [warn ] [antigravity_executor.go:1889] antigravity executor: ensure project id failed: request failed with status 403: {
+  "error": {
+    "code": 403,
+    "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+    "errors": [
+      {
+        "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+        "domain": "global",
+        "reason": "forbidden"
+      }
+    ],
+    "status": "PERMISSION_DENIED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "domain": "cloudcode-pa.googleapis.com",
+        "metadata": {
+          "uiMessage": "true",
+          "appeal_url_link_text": "Submit Appeal",
+          "appeal_url": "https://forms.gle/hGzM9MEUv2azZsrb9"
+        }
+      }
+    ]
+  }
+}
+[2026-04-30 05:50:08] [--------] [info ] [antigravity_executor.go:1890] antigravity executor: blocking auth antigravity-leevian1993@gmail.com.json for 30 minutes due to project id failure
+[2026-04-30 05:50:08] [--------] [info ] [events.go:152] auth file changed (WRITE): antigravity-leevian1993@gmail.com.json, processing incrementally
+[2026-04-30 06:35:10] [--------] [info ] [antigravity_version.go:76] fetched latest antigravity version
+[2026-04-30 06:35:11] [--------] [info ] [model_updater.go:133] periodic model refresh completed from https://raw.githubusercontent.com/router-for-me/models/refs/heads/main/models.json, no changes detected
+[2026-04-30 06:50:12] [--------] [warn ] [antigravity_executor.go:1889] antigravity executor: ensure project id failed: request failed with status 403: {
+  "error": {
+    "code": 403,
+    "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+    "errors": [
+      {
+        "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+        "domain": "global",
+        "reason": "forbidden"
+      }
+    ],
+    "status": "PERMISSION_DENIED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "domain": "cloudcode-pa.googleapis.com",
+        "metadata": {
+          "uiMessage": "true",
+          "appeal_url_link_text": "Submit Appeal",
+          "appeal_url": "https://forms.gle/hGzM9MEUv2azZsrb9"
+        }
+      }
+    ]
+  }
+}
+[2026-04-30 06:50:12] [--------] [info ] [antigravity_executor.go:1890] antigravity executor: blocking auth antigravity-leevian1993@gmail.com.json for 30 minutes due to project id failure
+[2026-04-30 06:50:12] [--------] [info ] [events.go:152] auth file changed (WRITE): antigravity-leevian1993@gmail.com.json, processing incrementally
+[2026-04-30 07:50:13] [--------] [warn ] [antigravity_executor.go:1889] antigravity executor: ensure project id failed: request failed with status 403: {
+  "error": {
+    "code": 403,
+    "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+    "errors": [
+      {
+        "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+        "domain": "global",
+        "reason": "forbidden"
+      }
+    ],
+    "status": "PERMISSION_DENIED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "domain": "cloudcode-pa.googleapis.com",
+        "metadata": {
+          "uiMessage": "true",
+          "appeal_url_link_text": "Submit Appeal",
+          "appeal_url": "https://forms.gle/hGzM9MEUv2azZsrb9"
+        }
+      }
+    ]
+  }
+}
+[2026-04-30 07:50:13] [--------] [info ] [antigravity_executor.go:1890] antigravity executor: blocking auth antigravity-leevian1993@gmail.com.json for 30 minutes due to project id failure
+[2026-04-30 07:50:13] [--------] [info ] [events.go:152] auth file changed (WRITE): antigravity-leevian1993@gmail.com.json, processing incrementally
+[2026-04-30 08:50:13] [--------] [warn ] [antigravity_executor.go:1889] antigravity executor: ensure project id failed: request failed with status 403: {
+  "error": {
+    "code": 403,
+    "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+    "errors": [
+      {
+        "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+        "domain": "global",
+        "reason": "forbidden"
+      }
+    ],
+    "status": "PERMISSION_DENIED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "domain": "cloudcode-pa.googleapis.com",
+        "metadata": {
+          "uiMessage": "true",
+          "appeal_url_link_text": "Submit Appeal",
+          "appeal_url": "https://forms.gle/hGzM9MEUv2azZsrb9"
+        }
+      }
+    ]
+  }
+}
+[2026-04-30 08:50:13] [--------] [info ] [antigravity_executor.go:1890] antigravity executor: blocking auth antigravity-leevian1993@gmail.com.json for 30 minutes due to project id failure
+[2026-04-30 08:50:13] [--------] [info ] [events.go:152] auth file changed (WRITE): antigravity-leevian1993@gmail.com.json, processing incrementally
+[2026-04-30 09:53:19] [--------] [info ] [antigravity_version.go:76] fetched latest antigravity version
+[2026-04-30 09:53:20] [--------] [warn ] [updater.go:244] failed to fetch latest management release information error=unexpected release status 403: {"message":"API rate limit exceeded for 154.17.239.7. (But here's the good news: Authenticated requests get a higher rate limit. Check out the documentation for more details.)","documentation_url":"https://docs.github.com/rest/overview/resources-in-the-rest-api#rate-limiting"}
+[2026-04-30 09:53:20] [--------] [info ] [model_updater.go:133] periodic model refresh completed from https://raw.githubusercontent.com/router-for-me/models/refs/heads/main/models.json, no changes detected
+[2026-04-30 09:53:21] [--------] [warn ] [antigravity_executor.go:1889] antigravity executor: ensure project id failed: request failed with status 403: {
+  "error": {
+    "code": 403,
+    "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+    "errors": [
+      {
+        "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+        "domain": "global",
+        "reason": "forbidden"
+      }
+    ],
+    "status": "PERMISSION_DENIED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "domain": "cloudcode-pa.googleapis.com",
+        "metadata": {
+          "uiMessage": "true",
+          "appeal_url_link_text": "Submit Appeal",
+          "appeal_url": "https://forms.gle/hGzM9MEUv2azZsrb9"
+        }
+      }
+    ]
+  }
+}
+[2026-04-30 09:53:21] [--------] [info ] [antigravity_executor.go:1890] antigravity executor: blocking auth antigravity-leevian1993@gmail.com.json for 30 minutes due to project id failure
+[2026-04-30 09:53:21] [--------] [info ] [events.go:152] auth file changed (WRITE): antigravity-leevian1993@gmail.com.json, processing incrementally
+[2026-04-30 12:23:21] [--------] [warn ] [antigravity_executor.go:1889] antigravity executor: ensure project id failed: request failed with status 403: {
+  "error": {
+    "code": 403,
+    "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+    "errors": [
+      {
+        "message": "This service has been disabled in this account for violation of Terms of Service. Please submit an appeal to continue using this product.",
+        "domain": "global",
+        "reason": "forbidden"
+      }
+    ],
+    "status": "PERMISSION_DENIED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "domain": "cloudcode-pa.googleapis.com",
+        "metadata": {
+          "uiMessage": "true",
+          "appeal_url_link_text": "Submit Appeal",
+          "appeal_url": "https://forms.gle/hGzM9MEUv2azZsrb9"
+        }
+      }
+    ]
+  }
+}
+[2026-04-30 12:23:21] [--------] [info ] [antigravity_executor.go:1890] antigravity executor: blocking auth antigravity-leevian1993@gmail.com.json for 30 minutes due to project id failure
+[2026-04-30 12:23:21] [--------] [info ] [events.go:152] auth file changed (WRITE): antigravity-leevian1993@gmail.com.json, processing incrementally

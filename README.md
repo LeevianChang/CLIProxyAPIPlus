@@ -2,6 +2,11 @@
 
 English | [Chinese](README_CN.md)
 
+## Documentation
+
+- [Remote Deployment Guide](DEPLOYMENT.md) - Deploy to production servers and access from local clients
+- [Kiro Token Import](#kiro-token-import) - Import existing Kiro tokens
+
 ## Quick Install
 
 ```bash
@@ -31,6 +36,68 @@ The Plus release stays in lockstep with the mainline features.
 ### CodeBuddy International
 
 The `--codebuddy-intl-login` flag authenticates against `www.codebuddy.ai` instead of the default `copilot.tencent.com` endpoint. The international variant uses identical API endpoints and response formats — only the base URL and default domain differ. Tokens are stored with `type: "codebuddy-intl"` and `base_url` metadata so the executor routes requests to the correct backend.
+
+## Kiro Token Import
+
+If you have Kiro tokens in the following format (camelCase naming):
+
+```json
+[
+  {
+    "accessToken": "aoaAAAAAGnjvxElKPxBwWvj1UzPFeXga...",
+    "expiresAt": "2026-04-18T17:27:45.502321326Z",
+    "refreshToken": "aorAAAAAGpaWAEksIImJljyatyIXMKSGV...",
+    "provider": "Google",
+    "profileArn": "arn:aws:codewhisperer:us-east-1:699475941385:profile/EHGA3GRVQMUK"
+  }
+]
+```
+
+You can use the `kiro-import` tool to convert and import them:
+
+### 1. Save your tokens
+
+Save your token array to a file (e.g., `tokens.json`)
+
+### 2. Build and run the import tool
+
+```bash
+# Build the import tool
+go build -o kiro-import ./cmd/kiro-import
+
+# Import tokens
+./kiro-import -input tokens.json -output auths
+```
+
+### 3. Start the server
+
+```bash
+go run ./cmd/server --config config.yaml
+```
+
+The server will automatically load all Kiro authentication files from the `auths/` directory.
+
+### What the tool does
+
+- Automatically extracts user email from JWT access token
+- Generates unique filenames based on email (e.g., `kiro-social-user@example.com.json`)
+- Converts camelCase format to snake_case format required by the system
+- Supports batch import of multiple accounts
+
+### Converted format example
+
+```json
+{
+  "type": "kiro",
+  "access_token": "aoaAAAAAGnjvxElKPxBwWvj1UzPFeXga...",
+  "refresh_token": "aorAAAAAGpaWAEksIImJljyatyIXMKSGV...",
+  "profile_arn": "arn:aws:codewhisperer:us-east-1:699475941385:profile/EHGA3GRVQMUK",
+  "expires_at": "2026-04-18T17:27:45.502321326Z",
+  "auth_method": "social",
+  "provider": "Google",
+  "email": "user@example.com"
+}
+```
 
 ## Contributing
 

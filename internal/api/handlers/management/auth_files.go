@@ -703,6 +703,18 @@ func (h *Handler) buildAuthFileEntry(auth *coreauth.Auth) gin.H {
 			"order":      auth.PrimaryInfo.Order,
 		}
 	}
+	// Add Kiro usage information if available
+	if strings.EqualFold(strings.TrimSpace(auth.Provider), "kiro") && auth.Metadata != nil {
+		if currentUsage, ok := auth.Metadata["current_usage"].(float64); ok {
+			entry["kiro_current_usage"] = currentUsage
+		}
+		if usageLimit, ok := auth.Metadata["usage_limit"].(float64); ok {
+			entry["kiro_usage_limit"] = usageLimit
+		}
+		if nextReset, ok := auth.Metadata["next_reset"].(float64); ok {
+			entry["kiro_next_reset"] = int64(nextReset)
+		}
+	}
 	return entry
 }
 
@@ -842,6 +854,58 @@ func (h *Handler) DownloadAuthFile(c *gin.Context) {
 	}
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", name))
 	c.Data(200, "application/json", data)
+}
+
+// GetKiroAuthFileUsage returns Kiro CodeWhisperer usage for a stored auth file.
+func (h *Handler) GetKiroAuthFileUsage(c *gin.Context) {
+	name := strings.TrimSpace(c.Query("name"))
+	if isUnsafeAuthFileName(name) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid name"})
+		return
+	}
+	if !strings.HasSuffix(strings.ToLower(name), ".json") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "name must end with .json"})
+		return
+	}
+
+	storage, err := kiroauth.LoadFromFile(filepath.Join(h.cfg.AuthDir, name))
+	if err != nil {
+		if os.IsNotExist(err) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "file not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to load Kiro auth file: %v", err)})
+		return
+	}
+	if !strings.EqualFold(strings.TrimSpace(storage.Type), "kiro") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "auth file is not a Kiro credential"})
+		return
+	}
+
+	usage, err := kiroauth.NewUsageChecker(h.cfg).CheckUsage(c.Request.Context(), storage.ToTokenData())
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("failed to fetch Kiro usage: %v", err)})
+		return
+	}
+
+	var currentUsage float64
+	var usageLimit float64
+	if usage != nil && len(usage.UsageBreakdownList) > 0 {
+		breakdown := usage.UsageBreakdownList[0]
+		currentUsage = breakdown.CurrentUsageWithPrecision
+		usageLimit = breakdown.UsageLimitWithPrecision
+	}
+
+	var nextReset float64
+	if usage != nil {
+		nextReset = usage.NextDateReset
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"current_usage": currentUsage,
+		"usage_limit":   usageLimit,
+		"next_reset":    nextReset,
+	})
 }
 
 // Upload auth file: multipart or raw JSON with ?name=
