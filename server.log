@@ -518,3 +518,313 @@ Waiting for authorization...
 }
 [2026-04-30 12:23:21] [--------] [info ] [antigravity_executor.go:1890] antigravity executor: blocking auth antigravity-leevian1993@gmail.com.json for 30 minutes due to project id failure
 [2026-04-30 12:23:21] [--------] [info ] [events.go:152] auth file changed (WRITE): antigravity-leevian1993@gmail.com.json, processing incrementally
+[2026-04-30 12:53:20] [--------] [info ] [antigravity_version.go:76] fetched latest antigravity version
+[2026-04-30 12:53:20] [--------] [info ] [model_updater.go:133] periodic model refresh completed from https://raw.githubusercontent.com/router-for-me/models/refs/heads/main/models.json, no changes detected
+[2026-04-30 13:38:33] [--------] [info ] [gin_logger.go:284] 304 |           9ms |       127.0.0.1 | GET     "/management.html"
+[2026-04-30 13:38:33] [--------] [info ] [gin_logger.go:284] 200 |           8ms |       127.0.0.1 | GET     "/v0/management/config"
+[2026-04-30 13:38:34] [--------] [info ] [gin_logger.go:284] 200 |           2ms |       127.0.0.1 | GET     "/v1/models"
+[2026-04-30 13:38:34] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/api-keys"
+[2026-04-30 13:38:34] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/gemini-api-key"
+[2026-04-30 13:38:34] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/codex-api-key"
+[2026-04-30 13:38:34] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 13:38:34] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/claude-api-key"
+[2026-04-30 13:38:34] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/openai-compatibility"
+[2026-04-30 13:38:37] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 13:38:37] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/config.yaml"
+[2026-04-30 13:38:43] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 13:38:43] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-excluded-models"
+[2026-04-30 13:38:43] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/usage"
+[2026-04-30 13:38:43] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/oauth-model-alias"
+[2026-04-30 13:38:50] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/openai-compatibility"
+[2026-04-30 13:38:50] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/ampcode"
+[2026-04-30 13:38:50] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/vertex-api-key"
+[2026-04-30 13:38:50] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-excluded-models"
+[2026-04-30 13:38:50] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 13:38:50] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/oauth-model-alias"
+[2026-04-30 13:38:53] [--------] [info ] [gin_logger.go:284] 304 |            0s |       127.0.0.1 | GET     "/management.html"
+[2026-04-30 13:38:53] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/config"
+[2026-04-30 13:38:53] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/config"
+[2026-04-30 13:38:54] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/usage"
+[2026-04-30 13:38:54] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 13:38:54] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-model-alias"
+[2026-04-30 13:38:54] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-excluded-models"
+[2026-04-30 13:39:04] [--------] [info ] [gin_logger.go:284] 200 |           4ms |       127.0.0.1 | DELETE  "/v0/management/auth-files"
+[2026-04-30 13:39:04] [--------] [info ] [events.go:143] auth file changed (REMOVE): antigravity-leevian1993@gmail.com.json, processing incrementally
+[2026-04-30 13:39:05] [--------] [info ] [gin_logger.go:284] 304 |            0s |       127.0.0.1 | GET     "/management.html"
+[2026-04-30 13:39:05] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/config"
+[2026-04-30 13:39:07] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-excluded-models"
+[2026-04-30 13:39:07] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 13:39:07] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-model-alias"
+[2026-04-30 13:39:07] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/usage"
+[2026-04-30 13:39:16] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-excluded-models"
+[2026-04-30 13:39:16] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-model-alias"
+[2026-04-30 13:39:16] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 13:39:21] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-excluded-models"
+[2026-04-30 13:39:21] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-model-alias"
+[2026-04-30 13:39:21] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 13:39:22] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 13:39:22] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/config.yaml"
+[2026-04-30 13:39:25] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-model-alias"
+[2026-04-30 13:39:25] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 13:39:25] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-excluded-models"
+[2026-04-30 13:40:19] [--------] [info ] [events.go:152] auth file changed (CREATE): kiro-social-alexanderpatel175_at_gmail.com.json, processing incrementally
+[2026-04-30 13:40:19] [--------] [info ] [events.go:152] auth file changed (CREATE): kiro-social-dorahall663_at_gmail.com.json, processing incrementally
+[2026-04-30 13:40:19] [--------] [info ] [events.go:152] auth file changed (CREATE): kiro-social-seracarita_at_gmail.com.json, processing incrementally
+[2026-04-30 13:40:19] [--------] [info ] [events.go:152] auth file changed (CREATE): kiro-social-sikenabor6_at_gmail.com.json, processing incrementally
+[2026-04-30 13:40:19] [--------] [info ] [events.go:152] auth file changed (CREATE): kiro-social-wirickulrick_at_gmail.com.json, processing incrementally
+[2026-04-30 13:40:20] [--------] [warn ] [service.go:1646] kiro: failed to fetch dynamic models: API error (status 403): {"message":"The bearer token included in the request is invalid.","reason":null}, using static models
+[2026-04-30 13:40:20] [--------] [warn ] [service.go:1646] kiro: failed to fetch dynamic models: API error (status 403): {"message":"The bearer token included in the request is invalid.","reason":null}, using static models
+[2026-04-30 13:40:20] [--------] [warn ] [service.go:1646] kiro: failed to fetch dynamic models: API error (status 403): {"message":"The bearer token included in the request is invalid.","reason":null}, using static models
+[2026-04-30 13:40:20] [--------] [warn ] [service.go:1646] kiro: failed to fetch dynamic models: API error (status 403): {"message":"The bearer token included in the request is invalid.","reason":null}, using static models
+[2026-04-30 13:40:21] [--------] [warn ] [service.go:1646] kiro: failed to fetch dynamic models: API error (status 403): {"message":"The bearer token included in the request is invalid.","reason":null}, using static models
+[2026-04-30 13:41:29] [--------] [info ] [gin_logger.go:284] 304 |            0s |       127.0.0.1 | GET     "/management.html"
+[2026-04-30 13:41:29] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/config"
+[2026-04-30 13:41:30] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/usage"
+[2026-04-30 13:41:30] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-excluded-models"
+[2026-04-30 13:41:30] [--------] [info ] [gin_logger.go:284] 200 |           2ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 13:41:30] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-model-alias"
+[2026-04-30 13:42:35] [--------] [info ] [gin_logger.go:284] 304 |           1ms |       127.0.0.1 | GET     "/management.html"
+[2026-04-30 13:42:35] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/config"
+[2026-04-30 13:42:37] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-excluded-models"
+[2026-04-30 13:42:37] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/usage"
+[2026-04-30 13:42:37] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-model-alias"
+[2026-04-30 13:42:37] [--------] [info ] [gin_logger.go:284] 200 |           5ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 13:42:41] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 13:42:41] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/config.yaml"
+[2026-04-30 13:42:45] [--------] [warn ] [gin_logger.go:282] 404 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files/kiro-usage?name=kiro-social-alexanderpatel175_at_gmail.com.json"
+[2026-04-30 13:43:09] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 13:43:09] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/config.yaml"
+[2026-04-30 13:43:13] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-excluded-models"
+[2026-04-30 13:43:13] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-model-alias"
+[2026-04-30 13:43:13] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 13:47:13] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/usage"
+[2026-04-30 13:48:55] [--------] [info ] [gin_logger.go:284] 304 |           1ms |       127.0.0.1 | GET     "/management.html"
+[2026-04-30 13:48:55] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/config"
+[2026-04-30 13:48:57] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/usage"
+[2026-04-30 13:48:57] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 13:48:57] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-excluded-models"
+[2026-04-30 13:48:57] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-model-alias"
+[2026-04-30 13:49:11] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/config.yaml"
+[2026-04-30 13:49:11] [--------] [info ] [gin_logger.go:284] 200 |          11ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 13:49:13] [--------] [warn ] [gin_logger.go:282] 404 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files/kiro-usage?name=kiro-social-alexanderpatel175_at_gmail.com.json"
+[2026-04-30 13:51:44] [--------] [info ] [events.go:152] auth file changed (WRITE|CHMOD): kiro-social-sikenabor6_at_gmail.com.json, processing incrementally
+[2026-04-30 13:51:44] [--------] [info ] [events.go:152] auth file changed (WRITE|CHMOD): kiro-social-dorahall663_at_gmail.com.json, processing incrementally
+[2026-04-30 13:51:44] [--------] [info ] [events.go:152] auth file changed (WRITE|CHMOD): kiro-social-alexanderpatel175_at_gmail.com.json, processing incrementally
+[2026-04-30 13:51:44] [--------] [info ] [events.go:152] auth file changed (WRITE|CHMOD): kiro-social-seracarita_at_gmail.com.json, processing incrementally
+[2026-04-30 13:51:44] [--------] [info ] [events.go:152] auth file changed (WRITE|CHMOD): kiro-social-wirickulrick_at_gmail.com.json, processing incrementally
+[2026-04-30 13:51:45] [--------] [warn ] [service.go:1646] kiro: failed to fetch dynamic models: API error (status 403): {"message":"The bearer token included in the request is invalid.","reason":null}, using static models
+[2026-04-30 13:51:45] [--------] [warn ] [service.go:1646] kiro: failed to fetch dynamic models: API error (status 403): {"message":"The bearer token included in the request is invalid.","reason":null}, using static models
+[2026-04-30 13:51:46] [--------] [warn ] [service.go:1646] kiro: failed to fetch dynamic models: API error (status 403): {"message":"The bearer token included in the request is invalid.","reason":null}, using static models
+[2026-04-30 13:51:46] [--------] [warn ] [service.go:1646] kiro: failed to fetch dynamic models: API error (status 403): {"message":"The bearer token included in the request is invalid.","reason":null}, using static models
+[2026-04-30 13:51:46] [--------] [warn ] [service.go:1646] kiro: failed to fetch dynamic models: API error (status 403): {"message":"The bearer token included in the request is invalid.","reason":null}, using static models
+[2026-04-30 13:53:21] [--------] [info ] [kiro_executor.go:3820] kiro executor: token refreshed successfully, expires at 2026-04-30T14:53:21+08:00
+[2026-04-30 13:53:21] [--------] [info ] [events.go:152] auth file changed (WRITE): kiro-social-seracarita_at_gmail.com.json, processing incrementally
+[2026-04-30 13:53:22] [--------] [info ] [kiro_executor.go:3820] kiro executor: token refreshed successfully, expires at 2026-04-30T14:53:22+08:00
+[2026-04-30 13:53:22] [--------] [info ] [events.go:152] auth file changed (WRITE): kiro-social-wirickulrick_at_gmail.com.json, processing incrementally
+[2026-04-30 13:53:22] [--------] [info ] [service.go:1661] kiro: successfully fetched 17 models from API (including agentic variants)
+[2026-04-30 13:53:22] [--------] [info ] [service.go:1661] kiro: successfully fetched 17 models from API (including agentic variants)
+[2026-04-30 13:53:22] [--------] [info ] [kiro_executor.go:3820] kiro executor: token refreshed successfully, expires at 2026-04-30T14:53:22+08:00
+[2026-04-30 13:53:22] [--------] [info ] [events.go:152] auth file changed (WRITE): kiro-social-alexanderpatel175_at_gmail.com.json, processing incrementally
+[2026-04-30 13:53:23] [--------] [info ] [service.go:1661] kiro: successfully fetched 17 models from API (including agentic variants)
+[2026-04-30 13:53:23] [--------] [info ] [kiro_executor.go:3820] kiro executor: token refreshed successfully, expires at 2026-04-30T14:53:23+08:00
+[2026-04-30 13:53:23] [--------] [info ] [events.go:152] auth file changed (WRITE): kiro-social-dorahall663_at_gmail.com.json, processing incrementally
+[2026-04-30 13:53:24] [--------] [info ] [service.go:1661] kiro: successfully fetched 17 models from API (including agentic variants)
+[2026-04-30 13:53:25] [--------] [info ] [kiro_executor.go:3820] kiro executor: token refreshed successfully, expires at 2026-04-30T14:53:25+08:00
+[2026-04-30 13:53:25] [--------] [info ] [events.go:152] auth file changed (WRITE): kiro-social-sikenabor6_at_gmail.com.json, processing incrementally
+[2026-04-30 13:53:25] [--------] [info ] [service.go:1661] kiro: successfully fetched 17 models from API (including agentic variants)
+[2026-04-30 13:57:50] [--------] [info ] [gin_logger.go:284] 304 |          45ms |       127.0.0.1 | GET     "/management.html"
+[2026-04-30 13:57:50] [--------] [info ] [gin_logger.go:284] 200 |           8ms |       127.0.0.1 | GET     "/v0/management/config"
+[2026-04-30 13:57:52] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/config.yaml"
+[2026-04-30 13:57:52] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 13:58:27] [--------] [info ] [gin_logger.go:284] 304 |            0s |       127.0.0.1 | GET     "/management.html"
+[2026-04-30 13:58:27] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/config"
+[2026-04-30 13:58:28] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 13:58:28] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/config.yaml"
+[2026-04-30 13:58:31] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 13:58:31] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-excluded-models"
+[2026-04-30 13:58:31] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/usage"
+[2026-04-30 13:58:31] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/oauth-model-alias"
+[2026-04-30 13:58:47] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/openai-compatibility"
+[2026-04-30 13:58:47] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 13:58:47] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 13:58:48] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 13:58:48] [--------] [info ] [gin_logger.go:284] 200 |           2ms |       127.0.0.1 | GET     "/v0/management/config.yaml"
+[2026-04-30 14:38:21] [--------] [info ] [kiro_executor.go:3820] kiro executor: token refreshed successfully, expires at 2026-04-30T15:38:21+08:00
+[2026-04-30 14:38:21] [--------] [info ] [events.go:152] auth file changed (WRITE): kiro-social-dorahall663_at_gmail.com.json, processing incrementally
+[2026-04-30 14:38:22] [--------] [info ] [kiro_executor.go:3820] kiro executor: token refreshed successfully, expires at 2026-04-30T15:38:22+08:00
+[2026-04-30 14:38:22] [--------] [info ] [events.go:152] auth file changed (WRITE): kiro-social-sikenabor6_at_gmail.com.json, processing incrementally
+[2026-04-30 14:38:23] [--------] [info ] [service.go:1661] kiro: successfully fetched 17 models from API (including agentic variants)
+[2026-04-30 14:38:23] [--------] [info ] [kiro_executor.go:3820] kiro executor: token refreshed successfully, expires at 2026-04-30T15:38:23+08:00
+[2026-04-30 14:38:23] [--------] [info ] [events.go:152] auth file changed (WRITE): kiro-social-wirickulrick_at_gmail.com.json, processing incrementally
+[2026-04-30 14:38:23] [--------] [info ] [service.go:1661] kiro: successfully fetched 17 models from API (including agentic variants)
+[2026-04-30 14:38:23] [--------] [info ] [service.go:1661] kiro: successfully fetched 17 models from API (including agentic variants)
+[2026-04-30 14:38:24] [--------] [info ] [kiro_executor.go:3820] kiro executor: token refreshed successfully, expires at 2026-04-30T15:38:24+08:00
+[2026-04-30 14:38:24] [--------] [info ] [events.go:152] auth file changed (WRITE): kiro-social-seracarita_at_gmail.com.json, processing incrementally
+[2026-04-30 14:38:24] [--------] [info ] [service.go:1661] kiro: successfully fetched 17 models from API (including agentic variants)
+[2026-04-30 14:38:25] [--------] [info ] [kiro_executor.go:3820] kiro executor: token refreshed successfully, expires at 2026-04-30T15:38:25+08:00
+[2026-04-30 14:38:25] [--------] [info ] [events.go:152] auth file changed (WRITE): kiro-social-alexanderpatel175_at_gmail.com.json, processing incrementally
+[2026-04-30 14:38:25] [--------] [info ] [service.go:1661] kiro: successfully fetched 17 models from API (including agentic variants)
+[2026-04-30 15:17:34] [--------] [info ] [gin_logger.go:284] 304 |           5ms |       127.0.0.1 | GET     "/management.html"
+[2026-04-30 15:17:34] [--------] [info ] [gin_logger.go:284] 200 |           7ms |       127.0.0.1 | GET     "/v0/management/config"
+[2026-04-30 15:17:36] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/config.yaml"
+[2026-04-30 15:17:36] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 15:17:40] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 15:17:40] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/usage"
+[2026-04-30 15:17:40] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-excluded-models"
+[2026-04-30 15:17:40] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/oauth-model-alias"
+[2026-04-30 15:18:00] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/config.yaml"
+[2026-04-30 15:18:00] [--------] [info ] [gin_logger.go:284] 200 |           3ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 15:23:21] [--------] [info ] [kiro_executor.go:3820] kiro executor: token refreshed successfully, expires at 2026-04-30T16:23:21+08:00
+[2026-04-30 15:23:21] [--------] [info ] [events.go:152] auth file changed (WRITE): kiro-social-seracarita_at_gmail.com.json, processing incrementally
+[2026-04-30 15:23:22] [--------] [info ] [kiro_executor.go:3820] kiro executor: token refreshed successfully, expires at 2026-04-30T16:23:22+08:00
+[2026-04-30 15:23:22] [--------] [info ] [events.go:152] auth file changed (WRITE): kiro-social-alexanderpatel175_at_gmail.com.json, processing incrementally
+[2026-04-30 15:23:22] [--------] [info ] [service.go:1661] kiro: successfully fetched 17 models from API (including agentic variants)
+[2026-04-30 15:23:23] [--------] [info ] [service.go:1661] kiro: successfully fetched 17 models from API (including agentic variants)
+[2026-04-30 15:23:23] [--------] [info ] [kiro_executor.go:3820] kiro executor: token refreshed successfully, expires at 2026-04-30T16:23:23+08:00
+[2026-04-30 15:23:23] [--------] [info ] [events.go:152] auth file changed (WRITE): kiro-social-sikenabor6_at_gmail.com.json, processing incrementally
+[2026-04-30 15:23:23] [--------] [info ] [service.go:1661] kiro: successfully fetched 17 models from API (including agentic variants)
+[2026-04-30 15:23:24] [--------] [info ] [kiro_executor.go:3820] kiro executor: token refreshed successfully, expires at 2026-04-30T16:23:24+08:00
+[2026-04-30 15:23:24] [--------] [info ] [events.go:152] auth file changed (WRITE): kiro-social-wirickulrick_at_gmail.com.json, processing incrementally
+[2026-04-30 15:23:25] [--------] [info ] [service.go:1661] kiro: successfully fetched 17 models from API (including agentic variants)
+[2026-04-30 15:23:26] [--------] [info ] [kiro_executor.go:3820] kiro executor: token refreshed successfully, expires at 2026-04-30T16:23:26+08:00
+[2026-04-30 15:23:26] [--------] [info ] [events.go:152] auth file changed (WRITE): kiro-social-dorahall663_at_gmail.com.json, processing incrementally
+[2026-04-30 15:23:26] [--------] [info ] [service.go:1661] kiro: successfully fetched 17 models from API (including agentic variants)
+[2026-04-30 15:28:54] [--------] [warn ] [gin_logger.go:282] 401 |           3ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 15:31:23] [--------] [info ] [gin_logger.go:284] 200 |          17ms |       127.0.0.1 | GET     "/management.html"
+[2026-04-30 15:31:23] [--------] [info ] [gin_logger.go:284] 200 |           2ms |       127.0.0.1 | GET     "/v0/management/config"
+[2026-04-30 15:31:25] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 15:31:25] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/config.yaml"
+[2026-04-30 15:31:26] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 15:31:26] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/usage"
+[2026-04-30 15:31:26] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-excluded-models"
+[2026-04-30 15:31:26] [--------] [info ] [gin_logger.go:284] 200 |           2ms |       127.0.0.1 | GET     "/v0/management/oauth-model-alias"
+[2026-04-30 15:32:47] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 15:32:47] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/config.yaml"
+[2026-04-30 15:53:20] [--------] [info ] [antigravity_version.go:76] fetched latest antigravity version
+[2026-04-30 15:53:20] [--------] [info ] [model_updater.go:133] periodic model refresh completed from https://raw.githubusercontent.com/router-for-me/models/refs/heads/main/models.json, no changes detected
+[2026-04-30 15:53:25] [--------] [warn ] [updater.go:262] failed to download management asset error=execute download request: Get "https://github.com/LeevianChang/Cli-Proxy-API-Management-Center/releases/download/v1.0.1/management.html": EOF
+[2026-04-30 16:06:34] [--------] [info ] [gin_logger.go:284] 304 |           7ms |       127.0.0.1 | GET     "/management.html"
+[2026-04-30 16:06:34] [--------] [info ] [gin_logger.go:284] 200 |           6ms |       127.0.0.1 | GET     "/v0/management/config"
+[2026-04-30 16:06:36] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/config.yaml"
+[2026-04-30 16:06:36] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 16:06:42] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 16:06:42] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-model-alias"
+[2026-04-30 16:06:42] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/usage"
+[2026-04-30 16:06:42] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-excluded-models"
+[2026-04-30 16:07:16] [--------] [warn ] [updater.go:256] failed to download management asset, trying fallback page error=execute download request: Get "https://github.com/LeevianChang/Cli-Proxy-API-Management-Center/releases/download/v1.0.2/management.html": EOF
+[2026-04-30 16:07:19] [--------] [warn ] [updater.go:291] management asset downloaded from fallback URL without digest verification (hash=adf3127f3d64f494dbf03507cd89fcbc360464decc950472f8d5b38203835f97) — enable verified GitHub updates by keeping disable-auto-update-panel set to false
+[2026-04-30 16:07:19] [--------] [info ] [updater.go:299] management asset updated from fallback page successfully (hash=adf3127f3d64f494dbf03507cd89fcbc360464decc950472f8d5b38203835f97)
+[2026-04-30 16:07:19] [--------] [info ] [gin_logger.go:284] 200 |        8.912s |       127.0.0.1 | GET     "/management.html"
+[2026-04-30 16:07:19] [--------] [info ] [gin_logger.go:284] 200 |        7.955s |       127.0.0.1 | GET     "/management.html"
+[2026-04-30 16:07:19] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/config"
+[2026-04-30 16:07:21] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 16:07:21] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/usage"
+[2026-04-30 16:07:21] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-excluded-models"
+[2026-04-30 16:07:21] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-model-alias"
+[2026-04-30 16:07:23] [--------] [info ] [gin_logger.go:284] 304 |            0s |       127.0.0.1 | GET     "/management.html"
+[2026-04-30 16:07:23] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/config"
+[2026-04-30 16:07:24] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-excluded-models"
+[2026-04-30 16:07:24] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-model-alias"
+[2026-04-30 16:07:24] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/usage"
+[2026-04-30 16:07:24] [--------] [info ] [gin_logger.go:284] 200 |           3ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 16:07:35] [--------] [info ] [gin_logger.go:284] 200 |           6ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 16:07:35] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/config.yaml"
+[2026-04-30 16:07:43] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 16:07:43] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/openai-compatibility"
+[2026-04-30 16:07:43] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 16:07:43] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 16:07:43] [--------] [info ] [gin_logger.go:284] 200 |           2ms |       127.0.0.1 | GET     "/v0/management/config.yaml"
+[2026-04-30 16:08:21] [--------] [info ] [kiro_executor.go:3820] kiro executor: token refreshed successfully, expires at 2026-04-30T17:08:21+08:00
+[2026-04-30 16:08:21] [--------] [info ] [events.go:152] auth file changed (WRITE): kiro-social-dorahall663_at_gmail.com.json, processing incrementally
+[2026-04-30 16:08:22] [--------] [info ] [kiro_executor.go:3820] kiro executor: token refreshed successfully, expires at 2026-04-30T17:08:22+08:00
+[2026-04-30 16:08:22] [--------] [info ] [events.go:152] auth file changed (WRITE): kiro-social-alexanderpatel175_at_gmail.com.json, processing incrementally
+[2026-04-30 16:08:22] [--------] [info ] [service.go:1661] kiro: successfully fetched 17 models from API (including agentic variants)
+[2026-04-30 16:08:22] [--------] [info ] [service.go:1661] kiro: successfully fetched 17 models from API (including agentic variants)
+[2026-04-30 16:08:22] [--------] [info ] [kiro_executor.go:3820] kiro executor: token refreshed successfully, expires at 2026-04-30T17:08:22+08:00
+[2026-04-30 16:08:22] [--------] [info ] [events.go:152] auth file changed (WRITE): kiro-social-wirickulrick_at_gmail.com.json, processing incrementally
+[2026-04-30 16:08:23] [--------] [info ] [service.go:1661] kiro: successfully fetched 17 models from API (including agentic variants)
+[2026-04-30 16:08:24] [--------] [info ] [kiro_executor.go:3820] kiro executor: token refreshed successfully, expires at 2026-04-30T17:08:24+08:00
+[2026-04-30 16:08:24] [--------] [info ] [events.go:152] auth file changed (WRITE): kiro-social-seracarita_at_gmail.com.json, processing incrementally
+[2026-04-30 16:08:24] [--------] [info ] [service.go:1661] kiro: successfully fetched 17 models from API (including agentic variants)
+[2026-04-30 16:08:25] [--------] [info ] [kiro_executor.go:3820] kiro executor: token refreshed successfully, expires at 2026-04-30T17:08:25+08:00
+[2026-04-30 16:08:25] [--------] [info ] [events.go:152] auth file changed (WRITE): kiro-social-sikenabor6_at_gmail.com.json, processing incrementally
+[2026-04-30 16:08:25] [--------] [info ] [service.go:1661] kiro: successfully fetched 17 models from API (including agentic variants)
+[2026-04-30 16:09:28] [--------] [warn ] [gin_logger.go:282] 401 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 16:10:50] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 16:10:50] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/config.yaml"
+[2026-04-30 16:13:42] [--------] [info ] [config_reload.go:64] config file changed, reloading: config.yaml
+[2026-04-30 16:13:42] [--------] [info ] [config_reload.go:133] config successfully reloaded, triggering client reload
+server clients and configuration updated: 5 clients (5 auth entries + 0 Gemini API keys + 0 Claude API keys + 0 Codex keys + 0 Vertex-compat + 0 OpenAI-compat)
+[2026-04-30 16:13:42] [--------] [info ] [clients.go:132] full client load complete - 5 clients (5 auth files + 0 Gemini API keys + 0 Vertex API keys + 0 Claude API keys + 0 Codex keys + 0 OpenAI-compat)
+[2026-04-30 16:23:28] [--------] [info ] [config_reload.go:64] config file changed, reloading: config.yaml
+[2026-04-30 16:23:28] [--------] [info ] [config_reload.go:133] config successfully reloaded, triggering client reload
+server clients and configuration updated: 5 clients (5 auth entries + 0 Gemini API keys + 0 Claude API keys + 0 Codex keys + 0 Vertex-compat + 0 OpenAI-compat)
+[2026-04-30 16:23:28] [--------] [info ] [clients.go:132] full client load complete - 5 clients (5 auth files + 0 Gemini API keys + 0 Vertex API keys + 0 Claude API keys + 0 Codex keys + 0 OpenAI-compat)
+[2026-04-30 16:28:29] [--------] [info ] [gin_logger.go:284] 200 |          18ms |       127.0.0.1 | GET     "/v0/management/usage"
+[2026-04-30 16:28:29] [--------] [info ] [gin_logger.go:284] 200 |          14ms |       127.0.0.1 | GET     "/v0/management/openai-compatibility"
+[2026-04-30 16:28:29] [--------] [info ] [gin_logger.go:284] 200 |          28ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 16:28:29] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 16:28:30] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 16:28:30] [--------] [info ] [gin_logger.go:284] 200 |           2ms |       127.0.0.1 | GET     "/v0/management/config.yaml"
+[2026-04-30 16:30:50] [--------] [info ] [gin_logger.go:284] 200 |          19ms |       127.0.0.1 | GET     "/management.html"
+[2026-04-30 16:30:50] [--------] [info ] [gin_logger.go:284] 200 |           4ms |       127.0.0.1 | GET     "/v0/management/config"
+[2026-04-30 16:30:50] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/config"
+[2026-04-30 16:30:55] [--------] [info ] [gin_logger.go:284] 200 |           2ms |       127.0.0.1 | GET     "/v0/management/config.yaml"
+[2026-04-30 16:30:55] [--------] [info ] [gin_logger.go:284] 200 |           3ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 16:30:57] [--------] [warn ] [gin_logger.go:282] 404 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files/kiro-usage?name=kiro-social-alexanderpatel175_at_gmail.com.json"
+[2026-04-30 16:31:01] [--------] [warn ] [gin_logger.go:282] 404 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files/kiro-usage?name=kiro-social-dorahall663_at_gmail.com.json"
+[2026-04-30 16:31:01] [--------] [warn ] [gin_logger.go:282] 404 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files/kiro-usage?name=kiro-social-seracarita_at_gmail.com.json"
+[2026-04-30 16:31:02] [--------] [warn ] [gin_logger.go:282] 404 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files/kiro-usage?name=kiro-social-wirickulrick_at_gmail.com.json"
+[2026-04-30 16:31:03] [--------] [warn ] [gin_logger.go:282] 404 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files/kiro-usage?name=kiro-social-sikenabor6_at_gmail.com.json"
+[2026-04-30 16:31:58] [--------] [warn ] [gin_logger.go:282] 401 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 16:42:56] [--------] [info ] [gin_logger.go:284] 200 |          18ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 16:42:56] [--------] [info ] [gin_logger.go:284] 200 |          66ms |       127.0.0.1 | GET     "/v0/management/config.yaml"
+[2026-04-30 16:43:02] [--------] [info ] [gin_logger.go:284] 200 |          21ms |       127.0.0.1 | GET     "/management.html"
+[2026-04-30 16:43:03] [--------] [info ] [gin_logger.go:284] 200 |           3ms |       127.0.0.1 | GET     "/v0/management/config"
+[2026-04-30 16:43:04] [--------] [info ] [gin_logger.go:284] 200 |           2ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 16:43:04] [--------] [info ] [gin_logger.go:284] 200 |           2ms |       127.0.0.1 | GET     "/v0/management/config.yaml"
+[2026-04-30 16:43:07] [--------] [warn ] [gin_logger.go:282] 404 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files/kiro-usage?name=kiro-social-alexanderpatel175_at_gmail.com.json"
+[2026-04-30 16:43:11] [--------] [warn ] [gin_logger.go:282] 404 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files/kiro-usage?name=kiro-social-dorahall663_at_gmail.com.json"
+[2026-04-30 16:45:04] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/vertex-api-key"
+[2026-04-30 16:45:04] [--------] [info ] [gin_logger.go:284] 200 |           3ms |       127.0.0.1 | GET     "/v0/management/config"
+[2026-04-30 16:45:04] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/openai-compatibility"
+[2026-04-30 16:45:04] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/ampcode"
+[2026-04-30 16:45:04] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/usage"
+[2026-04-30 16:45:04] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-model-alias"
+[2026-04-30 16:45:04] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/oauth-excluded-models"
+[2026-04-30 16:45:04] [--------] [info ] [gin_logger.go:284] 200 |           4ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 16:45:09] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 16:45:09] [--------] [info ] [gin_logger.go:284] 200 |           2ms |       127.0.0.1 | GET     "/v0/management/config.yaml"
+[2026-04-30 16:45:11] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/openai-compatibility"
+[2026-04-30 16:45:11] [--------] [info ] [gin_logger.go:284] 200 |           7ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 16:45:11] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 16:51:05] [--------] [info ] [gin_logger.go:284] 200 |          19ms |       127.0.0.1 | GET     "/management.html"
+[2026-04-30 16:51:06] [--------] [info ] [gin_logger.go:284] 200 |           5ms |       127.0.0.1 | GET     "/v0/management/config"
+[2026-04-30 16:51:07] [--------] [info ] [gin_logger.go:284] 200 |           2ms |       127.0.0.1 | GET     "/v0/management/config.yaml"
+[2026-04-30 16:51:07] [--------] [info ] [gin_logger.go:284] 200 |           7ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 16:51:13] [--------] [info ] [gin_logger.go:284] 200 |           1ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 16:51:13] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/openai-compatibility"
+[2026-04-30 16:51:13] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/usage"
+[2026-04-30 16:51:13] [--------] [info ] [gin_logger.go:284] 200 |           2ms |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 16:51:13] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/config.yaml"
+[2026-04-30 16:51:13] [--------] [info ] [gin_logger.go:284] 200 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files"
+[2026-04-30 16:51:15] [--------] [warn ] [gin_logger.go:282] 404 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files/kiro-usage?name=kiro-social-alexanderpatel175_at_gmail.com.json"
+[2026-04-30 16:51:36] [--------] [warn ] [gin_logger.go:282] 404 |            0s |       127.0.0.1 | GET     "/v0/management/auth-files/kiro-usage?name=kiro-social-alexanderpatel175_at_gmail.com.json"
+[2026-04-30 16:52:08] [--------] [info ] [refresh_manager.go:119] refresh manager: background refresh stopped
+CLIProxyAPI Version: dev, Commit: none, BuiltAt: unknown
+[2026-04-30 16:52:13] [--------] [error] [main.go:427] failed to commit initial git-backed config: git token store: checkout remote default: resolve remote default: list remote refs: Get "https://github.com/LeevianChang/Cli-Proxy-API-Management-Center/info/refs?service=git-upload-pack": unexpected EOF
+CLIProxyAPI Version: dev, Commit: none, BuiltAt: unknown
+[2026-04-30 16:53:58] [--------] [info ] [main.go:488] CLIProxyAPI Version: dev, Commit: none, BuiltAt: unknown
+[2026-04-30 16:53:58] [--------] [info ] [antigravity_version.go:51] periodic antigravity version refresh started (interval=3h0m0s)
+[2026-04-30 16:53:58] [--------] [info ] [refresh_manager.go:75] refresh manager: initialized with base directory /Users/leevian/.cli-proxy-api
+[2026-04-30 16:53:58] [--------] [info ] [refresh_manager.go:98] refresh manager: background refresh started
+[2026-04-30 16:53:58] [--------] [info ] [signature_cache.go:227] antigravity bypass signature validation: basic mode (R/E + 0x12)
+[2026-04-30 16:53:58] [--------] [info ] [server.go:531] management routes registered after secret key configuration
+[2026-04-30 16:53:58] [--------] [info ] [server.go:311] Kiro OAuth Web routes registered at /v0/oauth/kiro/*
+API server started successfully on: :8317
+server clients and configuration updated: 5 clients (5 auth entries + 0 Gemini API keys + 0 Claude API keys + 0 Codex keys + 0 Vertex-compat + 0 OpenAI-compat)
+[2026-04-30 16:53:59] [--------] [info ] [clients.go:132] full client load complete - 5 clients (5 auth files + 0 Gemini API keys + 0 Vertex API keys + 0 Claude API keys + 0 Codex keys + 0 OpenAI-compat)
+[2026-04-30 16:53:59] [--------] [info ] [service.go:728] file watcher started for config and auth directory changes
+[2026-04-30 16:53:59] [--------] [info ] [service.go:734] core auth auto-refresh started (interval=15m0s)
+[2026-04-30 16:53:59] [--------] [error] [run.go:54] proxy service exited with error: failed to start HTTP server: listen tcp :8317: bind: address already in use
+[2026-04-30 16:53:59] [--------] [info ] [refresh_manager.go:119] refresh manager: background refresh stopped

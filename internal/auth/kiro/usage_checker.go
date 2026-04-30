@@ -47,6 +47,25 @@ type QuotaStatus struct {
 	NextReset      time.Time
 }
 
+// SummarizeUsage aggregates usage across all returned quota buckets.
+func SummarizeUsage(usage *UsageQuotaResponse) (currentUsage, usageLimit, nextReset float64) {
+	if usage == nil {
+		return 0, 0, 0
+	}
+
+	for _, breakdown := range usage.UsageBreakdownList {
+		currentUsage += breakdown.CurrentUsageWithPrecision
+		usageLimit += breakdown.UsageLimitWithPrecision
+
+		if breakdown.FreeTrialInfo != nil {
+			currentUsage += breakdown.FreeTrialInfo.CurrentUsageWithPrecision
+			usageLimit += breakdown.FreeTrialInfo.UsageLimitWithPrecision
+		}
+	}
+
+	return currentUsage, usageLimit, usage.NextDateReset
+}
+
 // UsageChecker provides methods for checking token quota usage.
 type UsageChecker struct {
 	httpClient *http.Client
@@ -68,6 +87,25 @@ func NewUsageCheckerWithClient(client *http.Client) *UsageChecker {
 
 // CheckUsage retrieves usage limits for the given token.
 func (c *UsageChecker) CheckUsage(ctx context.Context, tokenData *KiroTokenData) (*UsageQuotaResponse, error) {
+	usage, err := c.checkUsageForResourceType(ctx, tokenData, "AGENTIC_REQUEST")
+	if err != nil {
+		return nil, err
+	}
+	if usage != nil && len(usage.UsageBreakdownList) > 0 {
+		return usage, nil
+	}
+
+	creditUsage, err := c.checkUsageForResourceType(ctx, tokenData, "CREDIT")
+	if err != nil {
+		return usage, nil
+	}
+	if creditUsage != nil && len(creditUsage.UsageBreakdownList) > 0 {
+		return creditUsage, nil
+	}
+	return usage, nil
+}
+
+func (c *UsageChecker) checkUsageForResourceType(ctx context.Context, tokenData *KiroTokenData, resourceType string) (*UsageQuotaResponse, error) {
 	if tokenData == nil {
 		return nil, fmt.Errorf("token data is nil")
 	}
@@ -79,7 +117,7 @@ func (c *UsageChecker) CheckUsage(ctx context.Context, tokenData *KiroTokenData)
 	queryParams := map[string]string{
 		"origin":       OriginForAuthMethod(tokenData.AuthMethod),
 		"profileArn":   tokenData.ProfileArn,
-		"resourceType": "AGENTIC_REQUEST",
+		"resourceType": resourceType,
 	}
 
 	// Use endpoint from profileArn if available
@@ -183,21 +221,13 @@ func (c *UsageChecker) GetQuotaStatus(ctx context.Context, tokenData *KiroTokenD
 		IsExhausted: IsQuotaExhausted(usage),
 	}
 
+	status.CurrentUsage, status.TotalLimit, _ = SummarizeUsage(usage)
+	status.RemainingQuota = status.TotalLimit - status.CurrentUsage
+	if status.RemainingQuota < 0 {
+		status.RemainingQuota = 0
+	}
 	if len(usage.UsageBreakdownList) > 0 {
-		breakdown := usage.UsageBreakdownList[0]
-		status.TotalLimit = breakdown.UsageLimitWithPrecision
-		status.CurrentUsage = breakdown.CurrentUsageWithPrecision
-		status.RemainingQuota = breakdown.UsageLimitWithPrecision - breakdown.CurrentUsageWithPrecision
-		status.ResourceType = breakdown.ResourceType
-
-		if breakdown.FreeTrialInfo != nil {
-			status.TotalLimit += breakdown.FreeTrialInfo.UsageLimitWithPrecision
-			status.CurrentUsage += breakdown.FreeTrialInfo.CurrentUsageWithPrecision
-			freeRemaining := breakdown.FreeTrialInfo.UsageLimitWithPrecision - breakdown.FreeTrialInfo.CurrentUsageWithPrecision
-			if freeRemaining > 0 {
-				status.RemainingQuota += freeRemaining
-			}
-		}
+		status.ResourceType = usage.UsageBreakdownList[0].ResourceType
 	}
 
 	if usage.NextDateReset > 0 {

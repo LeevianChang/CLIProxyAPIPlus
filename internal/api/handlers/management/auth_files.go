@@ -868,7 +868,14 @@ func (h *Handler) GetKiroAuthFileUsage(c *gin.Context) {
 		return
 	}
 
-	storage, err := kiroauth.LoadFromFile(filepath.Join(h.cfg.AuthDir, name))
+	filePath := filepath.Join(h.cfg.AuthDir, name)
+	rawData, _ := os.ReadFile(filePath)
+	rawMetadata := make(map[string]any)
+	if len(rawData) > 0 {
+		_ = json.Unmarshal(rawData, &rawMetadata)
+	}
+
+	storage, err := kiroauth.LoadFromFile(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "file not found"})
@@ -882,23 +889,23 @@ func (h *Handler) GetKiroAuthFileUsage(c *gin.Context) {
 		return
 	}
 
+	if refreshed, errRefresh := h.refreshKiroStorageIfNeeded(c.Request.Context(), filePath, storage, rawMetadata); errRefresh != nil {
+		log.WithError(errRefresh).Warnf("failed to refresh Kiro token before usage check: %s", name)
+	} else if refreshed != nil {
+		storage = refreshed
+	}
+
 	usage, err := kiroauth.NewUsageChecker(h.cfg).CheckUsage(c.Request.Context(), storage.ToTokenData())
 	if err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("failed to fetch Kiro usage: %v", err)})
 		return
 	}
 
-	var currentUsage float64
-	var usageLimit float64
-	if usage != nil && len(usage.UsageBreakdownList) > 0 {
-		breakdown := usage.UsageBreakdownList[0]
-		currentUsage = breakdown.CurrentUsageWithPrecision
-		usageLimit = breakdown.UsageLimitWithPrecision
-	}
-
-	var nextReset float64
-	if usage != nil {
-		nextReset = usage.NextDateReset
+	currentUsage, usageLimit, nextReset := kiroauth.SummarizeUsage(usage)
+	if usageLimit > 0 {
+		if errSave := saveKiroUsageMetadata(filePath, rawMetadata, usage, currentUsage, usageLimit, nextReset); errSave != nil {
+			log.WithError(errSave).Warnf("failed to cache Kiro usage for auth file: %s", name)
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -906,6 +913,174 @@ func (h *Handler) GetKiroAuthFileUsage(c *gin.Context) {
 		"usage_limit":   usageLimit,
 		"next_reset":    nextReset,
 	})
+}
+
+func saveKiroUsageMetadata(filePath string, metadata map[string]any, usage *kiroauth.UsageQuotaResponse, currentUsage, usageLimit, nextReset float64) error {
+	if usage == nil || metadata == nil {
+		return nil
+	}
+
+	usageData, err := json.Marshal(usage)
+	if err != nil {
+		return err
+	}
+	var usageMetadata map[string]any
+	if err := json.Unmarshal(usageData, &usageMetadata); err != nil {
+		return err
+	}
+
+	metadata["usage_data"] = usageMetadata
+	metadata["current_usage"] = currentUsage
+	metadata["usage_limit"] = usageLimit
+	metadata["next_reset"] = nextReset
+	updated, err := json.MarshalIndent(metadata, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filePath, append(updated, '\n'), 0o600)
+}
+
+func (h *Handler) refreshKiroStorageIfNeeded(ctx context.Context, filePath string, storage *kiroauth.KiroTokenStorage, rawMetadata map[string]any) (*kiroauth.KiroTokenStorage, error) {
+	if storage == nil || strings.TrimSpace(storage.RefreshToken) == "" {
+		return nil, nil
+	}
+	expiresAt := kiroauth.ParseExpiresAt(storage.ExpiresAt)
+	if !expiresAt.IsZero() && !kiroauth.IsTokenExpiringSoon(expiresAt, 5*time.Minute) {
+		return nil, nil
+	}
+
+	var tokenData *kiroauth.KiroTokenData
+	var err error
+	authMethod := strings.ToLower(strings.TrimSpace(storage.AuthMethod))
+	switch {
+	case kiroauth.IsKiroCLIAuthMethod(authMethod):
+		tokenData, err = kiroauth.NewKiroCLIOAuth(h.cfg).RefreshToken(ctx, storage.RefreshToken)
+	case authMethod == "builder-id" || authMethod == "idc":
+		if storage.ClientID == "" || storage.ClientSecret == "" {
+			return nil, nil
+		}
+		ssoClient := kiroauth.NewSSOOIDCClient(h.cfg)
+		if authMethod == "idc" && storage.Region != "" {
+			tokenData, err = ssoClient.RefreshTokenWithRegion(ctx, storage.ClientID, storage.ClientSecret, storage.RefreshToken, storage.Region, storage.StartURL)
+		} else {
+			tokenData, err = ssoClient.RefreshToken(ctx, storage.ClientID, storage.ClientSecret, storage.RefreshToken)
+		}
+	default:
+		tokenData, err = kiroauth.NewKiroOAuth(h.cfg).RefreshToken(ctx, storage.RefreshToken)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if tokenData == nil || tokenData.AccessToken == "" {
+		return nil, nil
+	}
+
+	storage.AccessToken = tokenData.AccessToken
+	if tokenData.RefreshToken != "" {
+		storage.RefreshToken = tokenData.RefreshToken
+	}
+	if tokenData.ProfileArn != "" {
+		storage.ProfileArn = tokenData.ProfileArn
+	}
+	if tokenData.ExpiresAt != "" {
+		storage.ExpiresAt = tokenData.ExpiresAt
+	}
+	storage.LastRefresh = time.Now().Format(time.RFC3339)
+
+	if rawMetadata == nil {
+		rawMetadata = make(map[string]any)
+	}
+	rawMetadata["type"] = "kiro"
+	rawMetadata["access_token"] = storage.AccessToken
+	rawMetadata["refresh_token"] = storage.RefreshToken
+	rawMetadata["profile_arn"] = storage.ProfileArn
+	rawMetadata["expires_at"] = storage.ExpiresAt
+	rawMetadata["auth_method"] = storage.AuthMethod
+	rawMetadata["provider"] = storage.Provider
+	rawMetadata["email"] = storage.Email
+	rawMetadata["last_refresh"] = storage.LastRefresh
+	if storage.ClientID != "" {
+		rawMetadata["client_id"] = storage.ClientID
+	}
+	if storage.ClientSecret != "" {
+		rawMetadata["client_secret"] = storage.ClientSecret
+	}
+	if storage.Region != "" {
+		rawMetadata["region"] = storage.Region
+	}
+	if storage.StartURL != "" {
+		rawMetadata["start_url"] = storage.StartURL
+	}
+
+	updated, err := json.MarshalIndent(rawMetadata, "", "  ")
+	if err != nil {
+		return storage, err
+	}
+	if err := os.WriteFile(filePath, append(updated, '\n'), 0o600); err != nil {
+		return storage, err
+	}
+	return storage, nil
+}
+
+func cachedKiroUsageFromMetadata(metadata map[string]any) (float64, float64, float64, bool) {
+	if metadata == nil {
+		return 0, 0, 0, false
+	}
+	if usageLimit := numericMetadataValue(metadata["usage_limit"]); usageLimit > 0 {
+		return numericMetadataValue(metadata["current_usage"]), usageLimit, numericMetadataValue(metadata["next_reset"]), true
+	}
+
+	usageData, _ := metadata["usage_data"].(map[string]any)
+	if usageData == nil {
+		return 0, 0, 0, false
+	}
+	items, _ := usageData["usageBreakdownList"].([]any)
+	if len(items) == 0 {
+		return 0, 0, numericMetadataValue(usageData["nextDateReset"]), false
+	}
+	var currentUsage float64
+	var usageLimit float64
+	var nextReset float64
+	for _, rawItem := range items {
+		item, _ := rawItem.(map[string]any)
+		if item == nil {
+			continue
+		}
+		if nextReset == 0 {
+			nextReset = numericMetadataValue(item["nextDateReset"])
+		}
+		currentUsage += numericMetadataValue(item["currentUsageWithPrecision"])
+		usageLimit += numericMetadataValue(item["usageLimitWithPrecision"])
+		if freeTrial, _ := item["freeTrialInfo"].(map[string]any); freeTrial != nil {
+			currentUsage += numericMetadataValue(freeTrial["currentUsageWithPrecision"])
+			usageLimit += numericMetadataValue(freeTrial["usageLimitWithPrecision"])
+		}
+	}
+	if nextReset == 0 {
+		nextReset = numericMetadataValue(usageData["nextDateReset"])
+	}
+	return currentUsage, usageLimit, nextReset, usageLimit > 0
+}
+
+func numericMetadataValue(value any) float64 {
+	switch v := value.(type) {
+	case float64:
+		return v
+	case float32:
+		return float64(v)
+	case int:
+		return float64(v)
+	case int64:
+		return float64(v)
+	case json.Number:
+		f, _ := v.Float64()
+		return f
+	case string:
+		f, _ := strconv.ParseFloat(strings.TrimSpace(v), 64)
+		return f
+	default:
+		return 0
+	}
 }
 
 // Upload auth file: multipart or raw JSON with ?name=
