@@ -386,6 +386,66 @@ func extractSystemPromptFromOpenAI(messages gjson.Result) string {
 	return strings.Join(systemParts, "\n")
 }
 
+// extractToolMessageText extracts plain text from an OpenAI "tool" message's
+// content field. The content can be a string or an array of content parts
+// (e.g. [{"type":"text","text":"..."}]). For unknown shapes, falls back to
+// the raw JSON representation so we never silently drop data.
+func extractToolMessageText(content gjson.Result) string {
+	if !content.Exists() {
+		return ""
+	}
+	if content.Type == gjson.String {
+		return content.String()
+	}
+	if content.IsArray() {
+		var b strings.Builder
+		for _, part := range content.Array() {
+			t := part.Get("text").String()
+			if t == "" {
+				continue
+			}
+			if b.Len() > 0 {
+				b.WriteByte('\n')
+			}
+			b.WriteString(t)
+		}
+		if b.Len() > 0 {
+			return b.String()
+		}
+	}
+	if content.IsObject() {
+		if t := content.Get("text").String(); t != "" {
+			return t
+		}
+	}
+	return content.Raw
+}
+
+// sanitizeToolName ensures tool names conform to Kiro's expected pattern
+// (^[a-zA-Z0-9_-]+$) and length limit (<=64). Invalid characters are
+// replaced with '_'. Returns empty string if input is empty/whitespace,
+// in which case the caller should skip the tool.
+func sanitizeToolName(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return ""
+	}
+	var b strings.Builder
+	b.Grow(len(name))
+	for _, r := range name {
+		switch {
+		case r >= 'a' && r <= 'z',
+			r >= 'A' && r <= 'Z',
+			r >= '0' && r <= '9',
+			r == '_', r == '-':
+			b.WriteRune(r)
+		default:
+			b.WriteByte('_')
+		}
+	}
+	return shortenToolNameIfNeeded(b.String())
+}
+
 // shortenToolNameIfNeeded shortens tool names that exceed 64 characters.
 // MCP tools often have long names like "mcp__server-name__tool-name".
 // This preserves the "mcp__" prefix and last segment when possible.
@@ -575,18 +635,24 @@ func processOpenAIMessages(messages gjson.Result, modelID, origin string) ([]Kir
 			// Tool messages in OpenAI format provide results for tool_calls
 			// These are typically followed by user or assistant messages
 			// Collect them as pending and attach to the next user message
-			toolCallID := msg.Get("tool_call_id").String()
-			content := msg.Get("content").String()
+			toolCallID := strings.TrimSpace(msg.Get("tool_call_id").String())
+			contentText := extractToolMessageText(msg.Get("content"))
 
-			if toolCallID != "" {
-				toolResult := KiroToolResult{
-					ToolUseID: toolCallID,
-					Content:   []KiroTextContent{{Text: content}},
-					Status:    "success",
-				}
-				// Collect pending tool results to attach to the next user message
-				pendingToolResults = append(pendingToolResults, toolResult)
+			if toolCallID == "" {
+				log.Warnf("kiro-openai: skipping tool message with empty tool_call_id")
+				continue
 			}
+			// Kiro requires non-empty tool result text
+			if strings.TrimSpace(contentText) == "" {
+				contentText = "(empty tool result)"
+			}
+
+			toolResult := KiroToolResult{
+				ToolUseID: toolCallID,
+				Content:   []KiroTextContent{{Text: contentText}},
+				Status:    "success",
+			}
+			pendingToolResults = append(pendingToolResults, toolResult)
 		}
 	}
 
@@ -618,7 +684,17 @@ func truncateHistoryIfNeeded(history []KiroHistoryMessage) []KiroHistoryMessage 
 	}
 
 	log.Debugf("kiro-openai: truncating history from %d to %d messages", len(history), kiroMaxHistoryMessages)
-	return history[len(history)-kiroMaxHistoryMessages:]
+	truncated := history[len(history)-kiroMaxHistoryMessages:]
+
+	// Kiro requires history to start with a userInputMessage and follow strict
+	// user/assistant alternation. After raw slicing the first entry may be an
+	// AssistantResponseMessage, which causes "Improperly formed request".
+	// Drop leading assistant entries until we hit a user message.
+	for len(truncated) > 0 && truncated[0].UserInputMessage == nil {
+		log.Debugf("kiro-openai: dropping leading assistant message after truncation to keep history valid")
+		truncated = truncated[1:]
+	}
+	return truncated
 }
 
 func filterOrphanedToolResults(history []KiroHistoryMessage, currentToolResults []KiroToolResult) ([]KiroHistoryMessage, []KiroToolResult) {
@@ -749,9 +825,17 @@ func buildAssistantMessageFromOpenAI(msg gjson.Result) KiroAssistantResponseMess
 			case "tool_use":
 				// Handle tool_use in content array (Anthropic/OpenCode format)
 				// This is different from OpenAI's tool_calls format
-				toolUseID := part.Get("id").String()
-				toolName := part.Get("name").String()
+				toolUseID := strings.TrimSpace(part.Get("id").String())
+				if toolUseID == "" {
+					toolUseID = strings.TrimSpace(part.Get("tool_use_id").String())
+				}
+				toolName := sanitizeToolName(part.Get("name").String())
 				inputData := part.Get("input")
+
+				if toolUseID == "" || toolName == "" {
+					log.Warnf("kiro-openai: skipping invalid tool_use in content array (id=%q, name=%q) — Kiro requires both fields", toolUseID, toolName)
+					continue
+				}
 
 				inputMap := make(map[string]interface{})
 				if inputData.Exists() && inputData.IsObject() {
@@ -779,9 +863,17 @@ func buildAssistantMessageFromOpenAI(msg gjson.Result) KiroAssistantResponseMess
 				continue
 			}
 
-			toolUseID := tc.Get("id").String()
-			toolName := tc.Get("function.name").String()
+			toolUseID := strings.TrimSpace(tc.Get("id").String())
+			if toolUseID == "" {
+				toolUseID = strings.TrimSpace(tc.Get("tool_use_id").String())
+			}
+			toolName := sanitizeToolName(tc.Get("function.name").String())
 			toolArgs := tc.Get("function.arguments").String()
+
+			if toolUseID == "" || toolName == "" {
+				log.Warnf("kiro-openai: skipping invalid tool_call (id=%q, name=%q) — Kiro requires both fields", toolUseID, toolName)
+				continue
+			}
 
 			var inputMap map[string]interface{}
 			if err := json.Unmarshal([]byte(toolArgs), &inputMap); err != nil {

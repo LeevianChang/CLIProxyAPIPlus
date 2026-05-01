@@ -992,6 +992,9 @@ func (e *KiroExecutor) executeWithRetry(ctx context.Context, auth *cliproxyauth.
 				b, _ := io.ReadAll(httpResp.Body)
 				appendAPIResponseChunk(ctx, e.cfg, b)
 				log.Debugf("kiro request error, status: %d, body: %s", httpResp.StatusCode, summarizeErrorBody(httpResp.Header.Get("Content-Type"), b))
+				if httpResp.StatusCode >= 400 && httpResp.StatusCode < 500 {
+					log.Warnf("kiro: %d request payload (truncated): %s", httpResp.StatusCode, summarizeErrorBody("application/json", kiroPayload))
+				}
 				err = statusErr{code: httpResp.StatusCode, msg: string(b)}
 				if errClose := httpResp.Body.Close(); errClose != nil {
 					log.Errorf("response body close error: %v", errClose)
@@ -1319,6 +1322,7 @@ func (e *KiroExecutor) executeStreamWithRetry(ctx context.Context, auth *cliprox
 				appendAPIResponseChunk(ctx, e.cfg, respBody)
 
 				log.Warnf("kiro: received 400 error (attempt %d/%d), body: %s", attempt+1, maxRetries+1, summarizeErrorBody(httpResp.Header.Get("Content-Type"), respBody))
+				log.Warnf("kiro: 400 request payload (truncated): %s", summarizeErrorBody("application/json", kiroPayload))
 
 				// 400 errors indicate request validation issues - return immediately without retry
 				return nil, statusErr{code: httpResp.StatusCode, msg: string(respBody)}
