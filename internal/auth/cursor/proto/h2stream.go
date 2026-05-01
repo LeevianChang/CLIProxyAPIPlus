@@ -33,10 +33,10 @@ type H2Stream struct {
 	err    error
 
 	// Send-side flow control
-	sendWindow   int32      // available bytes we can send on this stream
-	connWindow   int32      // available bytes on the connection level
-	windowCond   *sync.Cond // signaled when window is updated
-	windowMu     sync.Mutex // protects sendWindow, connWindow
+	sendWindow int32      // available bytes we can send on this stream
+	connWindow int32      // available bytes on the connection level
+	windowCond *sync.Cond // signaled when window is updated
+	windowMu   sync.Mutex // protects sendWindow, connWindow
 }
 
 // ID returns the unique identifier for this stream (for logging).
@@ -51,11 +51,29 @@ func (s *H2Stream) FrameNum() int64 {
 
 // DialH2Stream establishes a TLS+HTTP/2 connection and opens a new stream.
 func DialH2Stream(host string, headers map[string]string) (*H2Stream, error) {
-	tlsConn, err := tls.Dial("tcp", host+":443", &tls.Config{
+	defaultDialer := &net.Dialer{Timeout: 30 * time.Second}
+	return DialH2StreamWithDialer(host, headers, defaultDialer.Dial)
+}
+
+// DialH2StreamWithDialer establishes a TLS+HTTP/2 connection via the provided
+// dialer and opens a new stream. The dialer must return a plain net.Conn; TLS
+// is layered here so HTTP/2 negotiation remains identical for direct/proxy use.
+func DialH2StreamWithDialer(host string, headers map[string]string, dial func(network, addr string) (net.Conn, error)) (*H2Stream, error) {
+	if dial == nil {
+		defaultDialer := &net.Dialer{Timeout: 30 * time.Second}
+		dial = defaultDialer.Dial
+	}
+	rawConn, err := dial("tcp", host+":443")
+	if err != nil {
+		return nil, fmt.Errorf("h2: dial failed: %w", err)
+	}
+	tlsConn := tls.Client(rawConn, &tls.Config{
+		ServerName: host,
 		NextProtos: []string{"h2"},
 	})
-	if err != nil {
-		return nil, fmt.Errorf("h2: TLS dial failed: %w", err)
+	if err := tlsConn.Handshake(); err != nil {
+		tlsConn.Close()
+		return nil, fmt.Errorf("h2: TLS handshake failed: %w", err)
 	}
 	if tlsConn.ConnectionState().NegotiatedProtocol != "h2" {
 		tlsConn.Close()

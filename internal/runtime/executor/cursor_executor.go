@@ -11,7 +11,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -24,6 +26,7 @@ import (
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/executor"
 	"github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/usage"
+	"github.com/router-for-me/CLIProxyAPI/v6/sdk/proxyutil"
 	sdktranslator "github.com/router-for-me/CLIProxyAPI/v6/sdk/translator"
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
@@ -304,7 +307,7 @@ func (e *CursorExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, r
 	requestBytes := cursorproto.EncodeRunRequest(params)
 	framedRequest := cursorproto.FrameConnectMessage(requestBytes, 0)
 
-	stream, err := openCursorH2Stream(accessToken)
+	stream, err := e.openCursorH2Stream(auth, accessToken)
 	if err != nil {
 		return resp, err
 	}
@@ -501,7 +504,7 @@ func (e *CursorExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
 	requestBytes := cursorproto.EncodeRunRequest(params)
 	framedRequest := cursorproto.FrameConnectMessage(requestBytes, 0)
 
-	stream, err := openCursorH2Stream(accessToken)
+	stream, err := e.openCursorH2Stream(auth, accessToken)
 	if err != nil {
 		return nil, err
 	}
@@ -793,7 +796,7 @@ func (e *CursorExecutor) resumeWithToolResults(
 
 // --- H2Stream helpers ---
 
-func openCursorH2Stream(accessToken string) (*cursorproto.H2Stream, error) {
+func (e *CursorExecutor) openCursorH2Stream(auth *cliproxyauth.Auth, accessToken string) (*cursorproto.H2Stream, error) {
 	headers := map[string]string{
 		":path":                    cursorRunPath,
 		"content-type":             "application/connect+proto",
@@ -805,7 +808,56 @@ func openCursorH2Stream(accessToken string) (*cursorproto.H2Stream, error) {
 		"x-cursor-client-type":     "cli",
 		"x-request-id":             uuid.New().String(),
 	}
-	return cursorproto.DialH2Stream("api2.cursor.sh", headers)
+	dial := e.cursorDialFunc(auth)
+	return cursorproto.DialH2StreamWithDialer("api2.cursor.sh", headers, dial)
+}
+
+func (e *CursorExecutor) cursorDialFunc(auth *cliproxyauth.Auth) func(network, addr string) (net.Conn, error) {
+	proxyURL := ""
+	if auth != nil {
+		proxyURL = strings.TrimSpace(auth.ProxyURL)
+	}
+	if proxyURL == "" && e != nil && e.cfg != nil {
+		proxyURL = strings.TrimSpace(e.cfg.ProxyURL)
+	}
+	if proxyURL == "" {
+		defaultDialer := &net.Dialer{Timeout: 30 * time.Second}
+		return defaultDialer.Dial
+	}
+	dialer, mode, err := proxyutil.BuildDialer(proxyURL)
+	if err != nil {
+		log.Warnf("cursor: failed to configure proxy dialer for %s: %v; falling back to direct", maskProxyURL(proxyURL), err)
+		defaultDialer := &net.Dialer{Timeout: 30 * time.Second}
+		return defaultDialer.Dial
+	}
+	if mode == proxyutil.ModeDirect {
+		defaultDialer := &net.Dialer{Timeout: 30 * time.Second}
+		return defaultDialer.Dial
+	}
+	if dialer == nil {
+		defaultDialer := &net.Dialer{Timeout: 30 * time.Second}
+		return defaultDialer.Dial
+	}
+	log.Debugf("cursor: using proxy dialer %s", maskProxyURL(proxyURL))
+	return dialer.Dial
+}
+
+func maskProxyURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.User == nil {
+		return raw
+	}
+	username := parsed.User.Username()
+	if username == "" {
+		parsed.User = url.UserPassword("***", "***")
+	} else {
+		parsed.User = url.UserPassword(username, "***")
+	}
+	return parsed.String()
 }
 
 func cursorH2Heartbeat(ctx context.Context, stream *cursorproto.H2Stream) {
@@ -1383,6 +1435,41 @@ func newH2Client() *http.Client {
 	}
 }
 
+func (e *CursorExecutor) newCursorH2Client(auth *cliproxyauth.Auth) *http.Client {
+	client := newH2Client()
+	transport, ok := client.Transport.(*http2.Transport)
+	if !ok || transport == nil {
+		return client
+	}
+	dial := e.cursorDialFunc(auth)
+	transport.DialTLSContext = func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
+		connCh := make(chan net.Conn, 1)
+		errCh := make(chan error, 1)
+		go func() {
+			conn, err := dial(network, addr)
+			if err != nil {
+				errCh <- err
+				return
+			}
+			connCh <- conn
+		}()
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case err := <-errCh:
+			return nil, err
+		case rawConn := <-connCh:
+			tlsConn := tls.Client(rawConn, &tls.Config{ServerName: "api2.cursor.sh", NextProtos: []string{"h2"}})
+			if err := tlsConn.Handshake(); err != nil {
+				_ = rawConn.Close()
+				return nil, err
+			}
+			return tlsConn, nil
+		}
+	}
+	return client
+}
+
 // extractCCH extracts the cch value from the system prompt's billing header.
 func extractCCH(systemPrompt string) string {
 	idx := strings.Index(systemPrompt, "cch=")
@@ -1535,7 +1622,7 @@ func FetchCursorModels(ctx context.Context, auth *cliproxyauth.Auth, cfg *config
 	h2Req.Header.Set("X-Cursor-Client-Version", cursorClientVersion)
 	h2Req.Header.Set("X-Cursor-Client-Type", "cli")
 
-	client := newH2Client()
+	client := NewCursorExecutor(cfg).newCursorH2Client(auth)
 	resp, err := client.Do(h2Req)
 	if err != nil {
 		log.Debugf("cursor: models request failed: %v", err)
