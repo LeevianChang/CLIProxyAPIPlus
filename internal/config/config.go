@@ -130,6 +130,9 @@ type Config struct {
 	// OpenAICompatibility defines OpenAI API compatibility configurations for external providers.
 	OpenAICompatibility []OpenAICompatibility `yaml:"openai-compatibility" json:"openai-compatibility"`
 
+	// Windsurf configures the local Windsurf/Codeium language server bridge.
+	Windsurf WindsurfConfig `yaml:"windsurf" json:"windsurf"`
+
 	// VertexCompatAPIKey defines Vertex AI-compatible API key configurations for third-party providers.
 	// Used for services that use Vertex AI-style paths but with simple API key authentication.
 	VertexCompatAPIKey []VertexCompatKey `yaml:"vertex-api-key" json:"vertex-api-key"`
@@ -181,6 +184,15 @@ type ClaudeHeaderDefaults struct {
 type CodexHeaderDefaults struct {
 	UserAgent    string `yaml:"user-agent" json:"user-agent"`
 	BetaFeatures string `yaml:"beta-features" json:"beta-features"`
+}
+
+// WindsurfConfig controls the local language server used by the Windsurf provider.
+type WindsurfConfig struct {
+	LSBinaryPath string `yaml:"ls-binary-path" json:"ls-binary-path"`
+	LSPort       int    `yaml:"ls-port" json:"ls-port"`
+	DataDir      string `yaml:"data-dir" json:"data-dir"`
+	APIServerURL string `yaml:"api-server-url" json:"api-server-url"`
+	CSRFToken    string `yaml:"csrf-token" json:"csrf-token"`
 }
 
 // TLSConfig holds HTTPS server settings.

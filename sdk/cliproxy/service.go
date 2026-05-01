@@ -453,6 +453,8 @@ func (s *Service) ensureExecutorsForAuthWithMode(a *coreauth.Auth, forceReplace 
 		s.coreManager.RegisterExecutor(executor.NewCodeBuddyIntlExecutor(s.cfg))
 	case "gitlab":
 		s.coreManager.RegisterExecutor(executor.NewGitLabExecutor(s.cfg))
+	case "windsurf":
+		s.coreManager.RegisterExecutor(executor.NewWindsurfExecutor(s.cfg))
 	default:
 		providerKey := strings.ToLower(strings.TrimSpace(a.Provider))
 		if providerKey == "" {
@@ -971,6 +973,9 @@ func (s *Service) registerModelsForAuth(a *coreauth.Auth) {
 		models = applyExcludedModels(models, excluded)
 	case "gitlab":
 		models = executor.GitLabModelsFromAuth(a)
+		models = applyExcludedModels(models, excluded)
+	case "windsurf":
+		models = registry.GetWindsurfModels()
 		models = applyExcludedModels(models, excluded)
 	case "codebuddy":
 		models = registry.GetCodeBuddyModels()

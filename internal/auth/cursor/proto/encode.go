@@ -8,6 +8,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"unicode/utf8"
 
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/encoding/protowire"
@@ -16,6 +18,18 @@ import (
 	"google.golang.org/protobuf/types/dynamicpb"
 	"google.golang.org/protobuf/types/known/structpb"
 )
+
+// sanitizeUTF8 ensures the given string is valid UTF-8 by replacing any
+// invalid byte sequences with the Unicode replacement character (U+FFFD).
+// proto.Marshal panics on string fields containing invalid UTF-8 (e.g.
+// truncated multi-byte characters or stray bytes from upstream content).
+// We sanitize at the boundary so upstream noise never crashes the encoder.
+func sanitizeUTF8(s string) string {
+	if s == "" || utf8.ValidString(s) {
+		return s
+	}
+	return strings.ToValidUTF8(s, "\uFFFD")
+}
 
 // --- Public types ---
 
@@ -61,7 +75,7 @@ func field(msg *dynamicpb.Message, name string) protoreflect.FieldDescriptor {
 
 func setStr(msg *dynamicpb.Message, name, val string) {
 	if val != "" {
-		msg.Set(field(msg, name), protoreflect.ValueOfString(val))
+		msg.Set(field(msg, name), protoreflect.ValueOfString(sanitizeUTF8(val)))
 	}
 }
 
@@ -591,7 +605,7 @@ func encodeExecClientMsg(id uint32, execId string, resultFieldName string, resul
 	ecm := newMsg("ExecClientMessage")
 	setUint32(ecm, "id", id)
 	// Force set exec_id even if empty - Cursor requires this field to be set
-	ecm.Set(field(ecm, "exec_id"), protoreflect.ValueOfString(execId))
+	ecm.Set(field(ecm, "exec_id"), protoreflect.ValueOfString(sanitizeUTF8(execId)))
 
 	// Debug: check if field exists
 	fd := field(ecm, resultFieldName)

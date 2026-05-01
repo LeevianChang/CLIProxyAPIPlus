@@ -76,6 +76,21 @@ func GetAntigravityModels() []*ModelInfo {
 	return cloneModelInfos(getModels().Antigravity)
 }
 
+// GetWindsurfModels returns the initial Windsurf Cascade model definitions.
+func GetWindsurfModels() []*ModelInfo {
+	now := int64(1764547200) // 2025-12-01
+	return []*ModelInfo{
+		{ID: "claude-4.5-sonnet", Object: "model", Created: now, OwnedBy: "anthropic", Type: "windsurf", DisplayName: "Claude 4.5 Sonnet", ContextLength: 200000, MaxCompletionTokens: 32768, SupportedEndpoints: []string{"/chat/completions"}},
+		{ID: "claude-4.5-sonnet-thinking", Object: "model", Created: now, OwnedBy: "anthropic", Type: "windsurf", DisplayName: "Claude 4.5 Sonnet Thinking", ContextLength: 200000, MaxCompletionTokens: 32768, SupportedEndpoints: []string{"/chat/completions"}},
+		{ID: "claude-sonnet-4.6", Object: "model", Created: now, OwnedBy: "anthropic", Type: "windsurf", DisplayName: "Claude Sonnet 4.6", ContextLength: 200000, MaxCompletionTokens: 32768, SupportedEndpoints: []string{"/chat/completions"}},
+		{ID: "claude-sonnet-4.6-thinking", Object: "model", Created: now, OwnedBy: "anthropic", Type: "windsurf", DisplayName: "Claude Sonnet 4.6 Thinking", ContextLength: 200000, MaxCompletionTokens: 32768, SupportedEndpoints: []string{"/chat/completions"}},
+		{ID: "claude-opus-4.6", Object: "model", Created: now, OwnedBy: "anthropic", Type: "windsurf", DisplayName: "Claude Opus 4.6", ContextLength: 200000, MaxCompletionTokens: 32768, SupportedEndpoints: []string{"/chat/completions"}},
+		{ID: "claude-opus-4.6-thinking", Object: "model", Created: now, OwnedBy: "anthropic", Type: "windsurf", DisplayName: "Claude Opus 4.6 Thinking", ContextLength: 200000, MaxCompletionTokens: 32768, SupportedEndpoints: []string{"/chat/completions"}},
+		{ID: "claude-opus-4-7-medium", Object: "model", Created: now, OwnedBy: "anthropic", Type: "windsurf", DisplayName: "Claude Opus 4.7 Medium", ContextLength: 200000, MaxCompletionTokens: 32768, SupportedEndpoints: []string{"/chat/completions"}},
+		{ID: "claude-opus-4-7-medium-thinking", Object: "model", Created: now, OwnedBy: "anthropic", Type: "windsurf", DisplayName: "Claude Opus 4.7 Medium Thinking", ContextLength: 200000, MaxCompletionTokens: 32768, SupportedEndpoints: []string{"/chat/completions"}},
+	}
+}
+
 // GetCodeBuddyModels returns the available models for CodeBuddy (Tencent).
 // These models are served through the copilot.tencent.com API.
 func GetCodeBuddyModels() []*ModelInfo {
