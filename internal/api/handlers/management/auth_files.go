@@ -715,6 +715,27 @@ func (h *Handler) buildAuthFileEntry(auth *coreauth.Auth) gin.H {
 			entry["kiro_next_reset"] = int64(nextReset)
 		}
 	}
+	// Add Cursor usage information if available
+	if strings.EqualFold(strings.TrimSpace(auth.Provider), "cursor") && auth.Metadata != nil {
+		if currentUsage, ok := auth.Metadata["current_usage"].(float64); ok {
+			entry["cursor_current_usage"] = currentUsage
+		}
+		if usageLimit, ok := auth.Metadata["usage_limit"].(float64); ok {
+			entry["cursor_usage_limit"] = usageLimit
+		}
+		if remaining, ok := auth.Metadata["remaining"].(float64); ok {
+			entry["cursor_remaining"] = remaining
+		}
+		if nextReset, ok := auth.Metadata["next_reset"].(float64); ok {
+			entry["cursor_next_reset"] = int64(nextReset)
+		}
+		if billingModel, ok := auth.Metadata["billing_model"].(string); ok {
+			entry["cursor_billing_model"] = billingModel
+		}
+		if planLabel, ok := auth.Metadata["plan_label"].(string); ok {
+			entry["cursor_plan_label"] = planLabel
+		}
+	}
 	return entry
 }
 
@@ -933,6 +954,114 @@ func saveKiroUsageMetadata(filePath string, metadata map[string]any, usage *kiro
 	metadata["current_usage"] = currentUsage
 	metadata["usage_limit"] = usageLimit
 	metadata["next_reset"] = nextReset
+	updated, err := json.MarshalIndent(metadata, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filePath, append(updated, '\n'), 0o600)
+}
+
+// GetCursorAuthFileUsage returns Cursor account usage for a stored auth file.
+func (h *Handler) GetCursorAuthFileUsage(c *gin.Context) {
+	name := strings.TrimSpace(c.Query("name"))
+	if isUnsafeAuthFileName(name) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid name"})
+		return
+	}
+	if !strings.HasSuffix(strings.ToLower(name), ".json") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "name must end with .json"})
+		return
+	}
+
+	filePath := filepath.Join(h.cfg.AuthDir, name)
+	rawData, _ := os.ReadFile(filePath)
+	rawMetadata := make(map[string]any)
+	if len(rawData) > 0 {
+		_ = json.Unmarshal(rawData, &rawMetadata)
+	}
+
+	storage := struct {
+		Type         string `json:"type"`
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		Sub          string `json:"sub"`
+	}{}
+	if err := json.Unmarshal(rawData, &storage); err != nil {
+		if os.IsNotExist(err) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "file not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to load Cursor auth file: %v", err)})
+		return
+	}
+	if !strings.EqualFold(strings.TrimSpace(storage.Type), "cursor") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "auth file is not a Cursor credential"})
+		return
+	}
+
+	accessToken := strings.TrimSpace(storage.AccessToken)
+	if accessToken == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cursor access_token is missing"})
+		return
+	}
+	userID := cursorauth.NormalizeUserID(storage.Sub)
+	if userID == "" {
+		userID = cursorauth.NormalizeUserID(cursorauth.ParseJWTSub(accessToken))
+	}
+	if userID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to determine Cursor user id"})
+		return
+	}
+
+	usage, err := cursorauth.NewUsageChecker(h.cfg).CheckUsage(c.Request.Context(), userID, accessToken)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("failed to fetch Cursor usage: %v", err)})
+		return
+	}
+
+	if errSave := saveCursorUsageMetadata(filePath, rawMetadata, usage); errSave != nil {
+		log.WithError(errSave).Warnf("failed to cache Cursor usage for auth file: %s", name)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"billing_model":       usage.BillingModel,
+		"plan_label":          usage.PlanLabel,
+		"subscription_status": usage.SubscriptionStatus,
+		"current_usage":       usage.CurrentUsage,
+		"usage_limit":         usage.UsageLimit,
+		"remaining":           usage.Remaining,
+		"percent_used":        usage.PercentUsed,
+		"next_reset":          usage.NextReset,
+		"warnings":            usage.Warnings,
+		"partial":             usage.Partial,
+		"legacy_usage":        usage.LegacyUsage,
+		"credit_usage":        usage.CreditUsage,
+	})
+}
+
+func saveCursorUsageMetadata(filePath string, metadata map[string]any, usage *cursorauth.UsageSnapshot) error {
+	if usage == nil || metadata == nil {
+		return nil
+	}
+	usageData, err := json.Marshal(usage)
+	if err != nil {
+		return err
+	}
+	var usageMetadata map[string]any
+	if err := json.Unmarshal(usageData, &usageMetadata); err != nil {
+		return err
+	}
+
+	metadata["usage_data"] = usageMetadata
+	metadata["billing_model"] = usage.BillingModel
+	metadata["plan_label"] = usage.PlanLabel
+	metadata["subscription_status"] = usage.SubscriptionStatus
+	metadata["current_usage"] = usage.CurrentUsage
+	metadata["usage_limit"] = usage.UsageLimit
+	metadata["remaining"] = usage.Remaining
+	metadata["percent_used"] = usage.PercentUsed
+	metadata["next_reset"] = usage.NextReset
+	metadata["last_usage_check"] = usage.FetchedAt
 	updated, err := json.MarshalIndent(metadata, "", "  ")
 	if err != nil {
 		return err
