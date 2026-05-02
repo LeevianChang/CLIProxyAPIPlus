@@ -199,6 +199,17 @@ func classifyCursorError(err error) error {
 	return err
 }
 
+func isCursorBlobNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var ce *cursorproto.ConnectError
+	if errors.As(err, &ce) {
+		return strings.EqualFold(ce.Code, "internal") && strings.Contains(strings.ToLower(ce.Message), "blob not found")
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "blob not found")
+}
+
 // PrepareRequest implements ProviderExecutor (for HttpRequest support).
 func (e *CursorExecutor) PrepareRequest(req *http.Request, auth *cliproxyauth.Auth) error {
 	token := cursorAccessToken(auth)
@@ -469,9 +480,11 @@ func (e *CursorExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
 
 	params := buildRunRequestParams(parsed, conversationId)
 
+	usedCheckpoint := false
 	if hasCheckpoint && saved.data != nil && saved.authID == authID {
 		// Same auth — use checkpoint normally
 		log.Debugf("cursor: using saved checkpoint (%d bytes) for conv=%s auth=%s", len(saved.data), checkpointKey, authID)
+		usedCheckpoint = true
 		params.RawCheckpoint = saved.data
 		// Merge saved blobStore into params
 		if params.BlobStore == nil {
@@ -748,6 +761,13 @@ func (e *CursorExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
 	// return an error so the conductor retries with a different auth.
 	select {
 	case streamErr := <-streamErrCh:
+		if usedCheckpoint && isCursorBlobNotFoundError(streamErr) {
+			log.Warnf("cursor: checkpoint blob missing for conv=%s auth=%s; discarding checkpoint and retrying with flattened context", checkpointKey, authID)
+			e.mu.Lock()
+			delete(e.checkpoints, checkpointKey)
+			e.mu.Unlock()
+			return e.ExecuteStream(ctx, auth, req, opts)
+		}
 		return nil, classifyCursorError(fmt.Errorf("cursor: stream failed before response: %w", streamErr))
 	case <-firstChunkSent:
 		// Data started flowing — return stream to client

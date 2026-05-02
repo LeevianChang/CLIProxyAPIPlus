@@ -161,7 +161,10 @@ func EncodeRunRequest(p *RunRequestParams) []byte {
 		// ConversationTurnStructure (oneof turn → agentConversationTurn)
 		cts := newMsg("ConversationTurnStructure")
 		setMsg(cts, "agent_conversation_turn", agentTurn)
-		turnBytes = append(turnBytes, marshal(cts))
+		turnData := marshal(cts)
+		blobId := sha256Sum(turnData)
+		p.BlobStore[hex.EncodeToString(blobId)] = turnData
+		turnBytes = append(turnBytes, blobId)
 	}
 
 	// --- System prompt blob ---
