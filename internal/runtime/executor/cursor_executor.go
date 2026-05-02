@@ -81,6 +81,176 @@ type pendingMcpExec struct {
 	Args       string // JSON-encoded args
 }
 
+type cursorTrace struct {
+	startedAt      time.Time
+	authID         string
+	conversationID string
+	model          string
+	streamID       string
+	usedCheckpoint bool
+	flattened      bool
+
+	mu             sync.Mutex
+	connectDoneAt  time.Time
+	requestSentAt  time.Time
+	firstServerAt  time.Time
+	firstTextAt    time.Time
+	checkpointAt   time.Time
+	kvGetCount     int
+	kvSetCount     int
+	kvMissCount    int
+	checkpointSize int
+	textChars      int
+	thinkingChars  int
+	mcpExecCount   int
+}
+
+func newCursorTrace(authID, conversationID, model string) *cursorTrace {
+	return &cursorTrace{
+		startedAt:      time.Now(),
+		authID:         authID,
+		conversationID: conversationID,
+		model:          model,
+	}
+}
+
+func (t *cursorTrace) markConnectDone(streamID string) {
+	if t == nil {
+		return
+	}
+	t.mu.Lock()
+	t.streamID = streamID
+	t.connectDoneAt = time.Now()
+	t.mu.Unlock()
+}
+
+func (t *cursorTrace) markRequestSent() {
+	if t == nil {
+		return
+	}
+	t.mu.Lock()
+	t.requestSentAt = time.Now()
+	t.mu.Unlock()
+}
+
+func (t *cursorTrace) markFirstServer(msgType uint32) {
+	if t == nil {
+		return
+	}
+	t.mu.Lock()
+	if t.firstServerAt.IsZero() {
+		t.firstServerAt = time.Now()
+		log.Infof("cursor trace: first_server auth=%s conv=%s stream=%s model=%s msg_type=%d since_start=%s since_request=%s",
+			t.authID, t.conversationID, t.streamID, t.model, msgType, t.firstServerAt.Sub(t.startedAt).Round(time.Millisecond), sinceOrDash(t.requestSentAt, t.firstServerAt))
+	}
+	t.mu.Unlock()
+}
+
+func (t *cursorTrace) markText(text string, isThinking bool) {
+	if t == nil || text == "" {
+		return
+	}
+	t.mu.Lock()
+	now := time.Now()
+	if t.firstTextAt.IsZero() {
+		t.firstTextAt = now
+		log.Infof("cursor trace: first_text auth=%s conv=%s stream=%s model=%s thinking=%t since_start=%s since_request=%s since_first_server=%s",
+			t.authID, t.conversationID, t.streamID, t.model, isThinking, now.Sub(t.startedAt).Round(time.Millisecond), sinceOrDash(t.requestSentAt, now), sinceOrDash(t.firstServerAt, now))
+	}
+	if isThinking {
+		t.thinkingChars += len(text)
+	} else {
+		t.textChars += len(text)
+	}
+	t.mu.Unlock()
+}
+
+func (t *cursorTrace) markKvGet(hit bool) {
+	if t == nil {
+		return
+	}
+	t.mu.Lock()
+	t.kvGetCount++
+	if !hit {
+		t.kvMissCount++
+	}
+	t.mu.Unlock()
+}
+
+func (t *cursorTrace) markKvSet() {
+	if t == nil {
+		return
+	}
+	t.mu.Lock()
+	t.kvSetCount++
+	t.mu.Unlock()
+}
+
+func (t *cursorTrace) markCheckpoint(size int) {
+	if t == nil {
+		return
+	}
+	t.mu.Lock()
+	t.checkpointAt = time.Now()
+	t.checkpointSize = size
+	t.mu.Unlock()
+}
+
+func (t *cursorTrace) markMcpExec() {
+	if t == nil {
+		return
+	}
+	t.mu.Lock()
+	t.mcpExecCount++
+	t.mu.Unlock()
+}
+
+func (t *cursorTrace) logSummary(status string, err error) {
+	if t == nil {
+		return
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	now := time.Now()
+	errText := ""
+	if err != nil {
+		errText = err.Error()
+		if len(errText) > 180 {
+			errText = errText[:180] + "..."
+		}
+	}
+	log.Infof("cursor trace: summary status=%s auth=%s conv=%s stream=%s model=%s total=%s connect=%s request_to_first_server=%s request_to_first_text=%s server_to_text=%s checkpoint_at=%s used_checkpoint=%t flattened=%t kv_get=%d kv_set=%d kv_miss=%d checkpoint_bytes=%d text_chars=%d thinking_chars=%d mcp_exec=%d err=%q",
+		status,
+		t.authID,
+		t.conversationID,
+		t.streamID,
+		t.model,
+		now.Sub(t.startedAt).Round(time.Millisecond),
+		sinceOrDash(t.startedAt, t.connectDoneAt),
+		sinceOrDash(t.requestSentAt, t.firstServerAt),
+		sinceOrDash(t.requestSentAt, t.firstTextAt),
+		sinceOrDash(t.firstServerAt, t.firstTextAt),
+		sinceOrDash(t.startedAt, t.checkpointAt),
+		t.usedCheckpoint,
+		t.flattened,
+		t.kvGetCount,
+		t.kvSetCount,
+		t.kvMissCount,
+		t.checkpointSize,
+		t.textChars,
+		t.thinkingChars,
+		t.mcpExecCount,
+		errText,
+	)
+}
+
+func sinceOrDash(start, end time.Time) string {
+	if start.IsZero() || end.IsZero() {
+		return "-"
+	}
+	return end.Sub(start).Round(time.Millisecond).String()
+}
+
 // NewCursorExecutor constructs a new executor instance.
 func NewCursorExecutor(cfg *config.Config) *CursorExecutor {
 	e := &CursorExecutor{
@@ -210,6 +380,18 @@ func isCursorBlobNotFoundError(err error) bool {
 	return strings.Contains(strings.ToLower(err.Error()), "blob not found")
 }
 
+// cursorRateLimiterMarkIfExhausted checks if the classified error is a 429
+// (resource_exhausted) and marks the auth key as failed in the rate limiter.
+func cursorRateLimiterMarkIfExhausted(rl *cursorauth.CursorRateLimiter, key string, err error) {
+	if err == nil {
+		return
+	}
+	var se cursorStatusErr
+	if errors.As(err, &se) && se.code == 429 {
+		rl.MarkFailed(key)
+	}
+}
+
 // PrepareRequest implements ProviderExecutor (for HttpRequest support).
 func (e *CursorExecutor) PrepareRequest(req *http.Request, auth *cliproxyauth.Auth) error {
 	token := cursorAccessToken(auth)
@@ -302,6 +484,15 @@ func (e *CursorExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, r
 		return resp, fmt.Errorf("cursor: access token not found")
 	}
 
+	// Rate limiter: acquire slot for this auth file
+	rateLimiter := cursorauth.GetGlobalCursorRateLimiter()
+	authKey := auth.ID
+	if !rateLimiter.Acquire(authKey) {
+		remaining := rateLimiter.GetCooldownRemaining(authKey)
+		return resp, cursorStatusErr{code: 429, msg: fmt.Sprintf("cursor: auth %s in cooldown (%s remaining)", authKey, remaining.Round(time.Second))}
+	}
+	defer rateLimiter.Release(authKey)
+
 	// Translate input to OpenAI format if needed (e.g. Claude /v1/messages format)
 	from := opts.SourceFormat
 	to := sdktranslator.FromString("openai")
@@ -346,9 +537,14 @@ func (e *CursorExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, r
 		nil,
 		usageInfo,
 		nil, // onCheckpoint - non-streaming doesn't persist
+		nil,
 	); streamErr != nil && fullText.Len() == 0 {
-		return resp, classifyCursorError(fmt.Errorf("cursor: stream error: %w", streamErr))
+		classified := classifyCursorError(fmt.Errorf("cursor: stream error: %w", streamErr))
+		cursorRateLimiterMarkIfExhausted(rateLimiter, authKey, classified)
+		return resp, classified
 	}
+
+	rateLimiter.MarkSuccess(authKey)
 	inputTok, outputTok := usageInfo.get()
 	reporter.publish(ctx, usage.Detail{InputTokens: inputTok, OutputTokens: outputTok})
 
@@ -417,6 +613,7 @@ func (e *CursorExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
 	conversationId := deriveConversationId(apiKeyFromContext(ctx), ccSessionId, parsed.SystemPrompt)
 	authID := auth.ID // e.g. "cursor.json" or "cursor-account2.json"
 	log.Debugf("cursor: conversationId=%s authID=%s", conversationId, authID)
+	trace := newCursorTrace(authID, conversationId, parsed.Model)
 
 	// Session key includes authID (H2 stream is auth-specific, not transferable).
 	// Checkpoint key uses conversationId only — allows detecting auth migration.
@@ -456,6 +653,15 @@ func (e *CursorExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
 		}
 	}
 
+	// Rate limiter: acquire a slot only when opening a new Cursor stream. Tool-result
+	// resume reuses the existing stream, so it must not consume another slot.
+	streamRateLimiter := cursorauth.GetGlobalCursorRateLimiter()
+	streamAuthKey := auth.ID
+	if !streamRateLimiter.Acquire(streamAuthKey) {
+		remaining := streamRateLimiter.GetCooldownRemaining(streamAuthKey)
+		return nil, cursorStatusErr{code: 429, msg: fmt.Sprintf("cursor: auth %s in cooldown (%s remaining)", streamAuthKey, remaining.Round(time.Second))}
+	}
+
 	// Clean up any stale session for this key (or from a previous auth on same conversation)
 	e.mu.Lock()
 	if old, ok := e.sessions[sessionKey]; ok {
@@ -485,6 +691,7 @@ func (e *CursorExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
 		// Same auth — use checkpoint normally
 		log.Debugf("cursor: using saved checkpoint (%d bytes) for conv=%s auth=%s", len(saved.data), checkpointKey, authID)
 		usedCheckpoint = true
+		trace.usedCheckpoint = true
 		params.RawCheckpoint = saved.data
 		// Merge saved blobStore into params
 		if params.BlobStore == nil {
@@ -503,6 +710,7 @@ func (e *CursorExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
 		delete(e.checkpoints, checkpointKey)
 		e.mu.Unlock()
 		if len(parsed.ToolResults) > 0 || len(parsed.Turns) > 0 {
+			trace.flattened = true
 			flattenConversationIntoUserText(parsed)
 			params = buildRunRequestParams(parsed, conversationId)
 		}
@@ -511,6 +719,7 @@ func (e *CursorExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
 		// Flatten the full conversation history (including tool interactions) into userText.
 		// Cursor's turns encoding is not reliably read by the model, but userText always works.
 		log.Debugf("cursor: no checkpoint, flattening %d turns + %d tool results into userText", len(parsed.Turns), len(parsed.ToolResults))
+		trace.flattened = true
 		flattenConversationIntoUserText(parsed)
 		params = buildRunRequestParams(parsed, conversationId)
 	}
@@ -519,13 +728,19 @@ func (e *CursorExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
 
 	stream, err := e.openCursorH2Stream(auth, accessToken)
 	if err != nil {
+		streamRateLimiter.Release(streamAuthKey)
+		trace.logSummary("connect_error", err)
 		return nil, err
 	}
+	trace.markConnectDone(stream.ID())
 
 	if err := stream.Write(framedRequest); err != nil {
 		stream.Close()
+		streamRateLimiter.Release(streamAuthKey)
+		trace.logSummary("write_error", err)
 		return nil, fmt.Errorf("cursor: failed to send request: %w", err)
 	}
+	trace.markRequestSent()
 
 	// Use a session-scoped context for the heartbeat that is NOT tied to the HTTP request.
 	// This ensures the heartbeat survives across request boundaries during MCP tool execution.
@@ -606,6 +821,13 @@ func (e *CursorExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
 	}
 
 	go func() {
+		defer streamRateLimiter.Release(streamAuthKey)
+		traceStatus := "success"
+		var traceErr error
+		defer func() {
+			trace.logSummary(traceStatus, traceErr)
+		}()
+
 		var resumeOutCh chan cliproxyexecutor.StreamChunk
 		_ = resumeOutCh
 		thinkingActive := false
@@ -695,19 +917,23 @@ func (e *CursorExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
 				e.mu.Unlock()
 				log.Debugf("cursor: saved checkpoint (%d bytes) for conv=%s auth=%s", len(cpData), checkpointKey, authID)
 			},
+			trace,
 		)
 
 		// processH2SessionFrames returned — stream is done.
 		// Check if error happened before any chunks were emitted.
 		if streamErr != nil {
+			traceErr = streamErr
 			select {
 			case <-firstChunkSent:
 				// Chunks were already sent to client — can't transparently retry.
 				// Next request will failover via conductor's cooldown mechanism.
 				log.Warnf("cursor: stream error after data sent (auth=%s conv=%s): %v", authID, conversationId, streamErr)
 			default:
+				traceStatus = "pre_response_error"
 				// No data sent yet — propagate error for transparent conductor retry.
 				log.Warnf("cursor: stream error before data sent (auth=%s conv=%s): %v — signaling retry", authID, conversationId, streamErr)
+				cursorRateLimiterMarkIfExhausted(streamRateLimiter, streamAuthKey, classifyCursorError(streamErr))
 				streamErrCh <- streamErr
 				outMu.Lock()
 				if currentOut != nil {
@@ -744,6 +970,9 @@ func (e *CursorExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
 		}
 		sendDoneSwitchable()
 		_ = stopDelta // unused
+
+		// Stream completed successfully — mark success and release
+		streamRateLimiter.MarkSuccess(streamAuthKey)
 
 		// Close whatever output channel is still active
 		outMu.Lock()
@@ -956,6 +1185,7 @@ func processH2SessionFrames(
 	toolResultCh <-chan []toolResultInfo, // nil for no tool result injection; non-nil to wait for results
 	tokenUsage *cursorTokenUsage, // tracks accumulated token usage (may be nil)
 	onCheckpoint func(data []byte), // called when server sends conversation_checkpoint_update
+	trace *cursorTrace,
 ) error {
 	var buf bytes.Buffer
 	rejectReason := "Tool not available in this environment. Use the MCP tools provided instead."
@@ -1006,14 +1236,23 @@ func processH2SessionFrames(
 					continue
 				}
 
+				if trace != nil {
+					trace.markFirstServer(uint32(msg.Type))
+				}
 				log.Debugf("cursor: decoded server message type=%d", msg.Type)
 				switch msg.Type {
 				case cursorproto.ServerMsgTextDelta:
 					if msg.Text != "" && onText != nil {
+						if trace != nil {
+							trace.markText(msg.Text, false)
+						}
 						onText(msg.Text, false)
 					}
 				case cursorproto.ServerMsgThinkingDelta:
 					if msg.Text != "" && onText != nil {
+						if trace != nil {
+							trace.markText(msg.Text, true)
+						}
 						onText(msg.Text, true)
 					}
 				case cursorproto.ServerMsgThinkingCompleted:
@@ -1028,6 +1267,9 @@ func processH2SessionFrames(
 					continue
 
 				case cursorproto.ServerMsgCheckpoint:
+					if trace != nil {
+						trace.markCheckpoint(len(msg.CheckpointData))
+					}
 					if onCheckpoint != nil && len(msg.CheckpointData) > 0 {
 						onCheckpoint(msg.CheckpointData)
 					}
@@ -1041,13 +1283,19 @@ func processH2SessionFrames(
 
 				case cursorproto.ServerMsgKvGetBlob:
 					blobKey := cursorproto.BlobIdHex(msg.BlobId)
-					data := blobStore[blobKey]
+					data, hit := blobStore[blobKey]
+					if trace != nil {
+						trace.markKvGet(hit)
+					}
 					resp := cursorproto.EncodeKvGetBlobResult(msg.KvId, data)
 					stream.Write(cursorproto.FrameConnectMessage(resp, 0))
 
 				case cursorproto.ServerMsgKvSetBlob:
 					blobKey := cursorproto.BlobIdHex(msg.BlobId)
 					blobStore[blobKey] = append([]byte(nil), msg.BlobData...)
+					if trace != nil {
+						trace.markKvSet()
+					}
 					resp := cursorproto.EncodeKvSetBlobResult(msg.KvId)
 					stream.Write(cursorproto.FrameConnectMessage(resp, 0))
 
@@ -1057,6 +1305,9 @@ func processH2SessionFrames(
 
 				case cursorproto.ServerMsgExecMcpArgs:
 					if onMcpExec != nil {
+						if trace != nil {
+							trace.markMcpExec()
+						}
 						decodedArgs := decodeMcpArgsToJSON(msg.McpArgs)
 						toolCallId := msg.McpToolCallId
 						if toolCallId == "" {
@@ -1116,15 +1367,24 @@ func processH2SessionFrames(
 									switch wmsg.Type {
 									case cursorproto.ServerMsgKvGetBlob:
 										blobKey := cursorproto.BlobIdHex(wmsg.BlobId)
-										d := blobStore[blobKey]
+										d, hit := blobStore[blobKey]
+										if trace != nil {
+											trace.markKvGet(hit)
+										}
 										stream.Write(cursorproto.FrameConnectMessage(cursorproto.EncodeKvGetBlobResult(wmsg.KvId, d), 0))
 									case cursorproto.ServerMsgKvSetBlob:
 										blobKey := cursorproto.BlobIdHex(wmsg.BlobId)
 										blobStore[blobKey] = append([]byte(nil), wmsg.BlobData...)
+										if trace != nil {
+											trace.markKvSet()
+										}
 										stream.Write(cursorproto.FrameConnectMessage(cursorproto.EncodeKvSetBlobResult(wmsg.KvId), 0))
 									case cursorproto.ServerMsgExecRequestCtx:
 										stream.Write(cursorproto.FrameConnectMessage(cursorproto.EncodeExecRequestContextResult(wmsg.ExecMsgId, wmsg.ExecId, mcpTools), 0))
 									case cursorproto.ServerMsgCheckpoint:
+										if trace != nil {
+											trace.markCheckpoint(len(wmsg.CheckpointData))
+										}
 										if onCheckpoint != nil && len(wmsg.CheckpointData) > 0 {
 											onCheckpoint(wmsg.CheckpointData)
 										}
