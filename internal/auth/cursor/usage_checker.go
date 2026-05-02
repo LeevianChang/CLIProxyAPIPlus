@@ -262,6 +262,29 @@ func summarizeUsageSnapshot(legacy *LegacyUsageResponse, current *CurrentPeriodU
 		RawCurrentPeriodUsage: current,
 		RawStripeStatus:       stripe,
 	}
+	if current != nil {
+		limit := valueOrZero(current.PlanUsage.Limit)
+		remaining := valueOrZero(current.PlanUsage.Remaining)
+		used := maxFloat(limit-remaining, 0)
+		s.BillingModel = "usd_credit"
+		s.CurrentUsage = used
+		s.UsageLimit = limit
+		s.Remaining = remaining
+		s.PercentUsed = percent(used, limit)
+		start := millisToRFC3339(current.BillingCycleStart)
+		end := millisToRFC3339(current.BillingCycleEnd)
+		if endMs := parseMillis(current.BillingCycleEnd); endMs > 0 {
+			s.NextReset = float64(endMs)
+		}
+		s.CreditUsage = &CreditUsageSummary{UsedCents: used, LimitCents: limit, RemainingCents: remaining, PercentUsed: s.PercentUsed, AutoPercentUsed: current.PlanUsage.AutoPercentUsed, APIPercentUsed: current.PlanUsage.APIPercentUsed, CycleStart: start, CycleEnd: end}
+		if legacy != nil && legacy.GPT4 != nil && legacy.GPT4.MaxRequestUsage != nil && *legacy.GPT4.MaxRequestUsage > 0 {
+			legacyUsed := legacy.GPT4.NumRequests
+			legacyLimit := *legacy.GPT4.MaxRequestUsage
+			legacyStart, legacyEnd := legacyCycle(legacy.StartOfMonth)
+			s.LegacyUsage = &LegacyUsageSummary{Used: legacyUsed, Max: legacyLimit, PercentUsed: percent(legacyUsed, legacyLimit), CycleStart: legacyStart.Format(time.RFC3339), CycleEnd: legacyEnd.Format(time.RFC3339)}
+		}
+		return s
+	}
 	if legacy != nil && legacy.GPT4 != nil && legacy.GPT4.MaxRequestUsage != nil && *legacy.GPT4.MaxRequestUsage > 0 {
 		used := legacy.GPT4.NumRequests
 		limit := *legacy.GPT4.MaxRequestUsage
@@ -273,27 +296,6 @@ func summarizeUsageSnapshot(legacy *LegacyUsageResponse, current *CurrentPeriodU
 		start, end := legacyCycle(legacy.StartOfMonth)
 		s.NextReset = float64(end.UnixMilli())
 		s.LegacyUsage = &LegacyUsageSummary{Used: used, Max: limit, PercentUsed: s.PercentUsed, CycleStart: start.Format(time.RFC3339), CycleEnd: end.Format(time.RFC3339)}
-		return s
-	}
-	if current != nil {
-		limit := valueOrZero(current.PlanUsage.Limit)
-		remaining := valueOrZero(current.PlanUsage.Remaining)
-		used := maxFloat(limit-remaining, 0)
-		s.BillingModel = "usd_credit"
-		s.CurrentUsage = used
-		s.UsageLimit = limit
-		s.Remaining = remaining
-		if current.PlanUsage.TotalPercentUsed != nil {
-			s.PercentUsed = *current.PlanUsage.TotalPercentUsed
-		} else {
-			s.PercentUsed = percent(used, limit)
-		}
-		start := millisToRFC3339(current.BillingCycleStart)
-		end := millisToRFC3339(current.BillingCycleEnd)
-		if endMs := parseMillis(current.BillingCycleEnd); endMs > 0 {
-			s.NextReset = float64(endMs)
-		}
-		s.CreditUsage = &CreditUsageSummary{UsedCents: used, LimitCents: limit, RemainingCents: remaining, PercentUsed: s.PercentUsed, AutoPercentUsed: current.PlanUsage.AutoPercentUsed, APIPercentUsed: current.PlanUsage.APIPercentUsed, CycleStart: start, CycleEnd: end}
 	}
 	return s
 }
