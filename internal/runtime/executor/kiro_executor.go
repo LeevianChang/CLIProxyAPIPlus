@@ -152,6 +152,27 @@ func calibrateKiroSimulatedCacheToTotalInput(simulated kiroSimulatedCacheResult,
 		simulated.CreationTokens = 0
 		return simulated
 	}
+	if simulated.ReadTokens == 0 && simulated.CreationTokens > 0 && simulated.UncachedTokens > 0 {
+		// Kiro often only exposes credits. If our local prefix cache missed but the
+		// billed total is much larger than the current uncached turn, treat the
+		// extra calibrated prompt as an upstream cache read instead of repeatedly
+		// reporting all historical context as cache creation.
+		minUncached := kiroMinimumUncachedTokens(totalInputTokens)
+		uncached := simulated.UncachedTokens
+		if uncached < minUncached {
+			uncached = minUncached
+		}
+		if uncached > totalInputTokens {
+			uncached = totalInputTokens
+		}
+		readTokens := totalInputTokens - uncached
+		if readTokens > simulated.CreationTokens*2 {
+			simulated.ReadTokens = readTokens
+			simulated.CreationTokens = 0
+			simulated.UncachedTokens = uncached
+			return simulated
+		}
+	}
 	readRatio := float64(simulated.ReadTokens) / float64(oldTotal)
 	creationRatio := float64(simulated.CreationTokens) / float64(oldTotal)
 	simulated.ReadTokens = int64(math.Round(float64(totalInputTokens) * readRatio))
@@ -246,10 +267,7 @@ func estimateKiroToolUseOutputTokens(model string, toolUses []kiroclaude.KiroToo
 }
 
 func logKiroRawEventPayload(source, eventType string, payload []byte) {
-	if eventType == "assistantResponseEvent" {
-		return
-	}
-	log.Infof("kiro: %s raw upstream event type=%s payload=%s", source, eventType, string(payload))
+	log.Debugf("kiro: %s raw upstream event type=%s payload_bytes=%d", source, eventType, len(payload))
 }
 
 func summarizeKiroPayloadStructure(payload []byte) string {
@@ -2442,7 +2460,7 @@ func (e *KiroExecutor) parseEventStream(body io.Reader) (string, []kiroclaude.Ki
 				log.Debugf("kiro: parseEventStream received context usage: %.2f%%", upstreamContextPercentage)
 			}
 			// Log unknown event types for debugging (to discover new event formats)
-			log.Debugf("kiro: parseEventStream unknown event type: %s, payload: %s", eventType, string(payload))
+			log.Debugf("kiro: parseEventStream unknown event type: %s, payload_bytes=%d", eventType, len(payload))
 		}
 
 		// Check for direct token fields in any event (fallback)
@@ -2888,7 +2906,7 @@ func (e *KiroExecutor) streamToChannel(ctx context.Context, body io.Reader, out 
 
 		var event map[string]interface{}
 		if err := json.Unmarshal(payload, &event); err != nil {
-			log.Warnf("kiro: failed to unmarshal event payload: %v, raw: %s", err, string(payload))
+			log.Warnf("kiro: failed to unmarshal event payload: %v, payload_bytes=%d", err, len(payload))
 			continue
 		}
 		logKiroRawEventPayload("streamToChannel", eventType, payload)
@@ -3101,7 +3119,7 @@ func (e *KiroExecutor) streamToChannel(ctx context.Context, body io.Reader, out 
 
 			// Log unknown event types for debugging (to discover new event formats)
 			if eventType != "" {
-				log.Debugf("kiro: streamToChannel unknown event type: %s, payload: %s", eventType, string(payload))
+				log.Debugf("kiro: streamToChannel unknown event type: %s, payload_bytes=%d", eventType, len(payload))
 			}
 
 		case "assistantResponseEvent":

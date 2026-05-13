@@ -97,7 +97,7 @@ func ParseEmbeddedToolCalls(text string, processedIDs map[string]bool) (string, 
 		repairedJSON := RepairJSON(jsonStr)
 		var inputMap map[string]interface{}
 		if err := json.Unmarshal([]byte(repairedJSON), &inputMap); err != nil {
-			log.Debugf("kiro: failed to parse embedded tool call JSON: %v, raw: %s", err, jsonStr)
+			log.Debugf("kiro: failed to parse embedded tool call JSON: %v, raw_bytes=%d", err, len(jsonStr))
 			continue
 		}
 
@@ -427,7 +427,7 @@ func ProcessToolUseEvent(event map[string]interface{}, currentToolUse *ToolUseSt
 
 					var input map[string]interface{}
 					if err := json.Unmarshal([]byte(repaired), &input); err != nil {
-						log.Warnf("kiro: failed to parse interleaved tool input: %v, raw: %s", err, raw)
+						log.Warnf("kiro: failed to parse interleaved tool input: %v, raw_bytes=%d", err, len(raw))
 						input = make(map[string]interface{})
 					}
 					incomplete.Input = input
@@ -473,7 +473,7 @@ func ProcessToolUseEvent(event map[string]interface{}, currentToolUse *ToolUseSt
 		repairedJSON := RepairJSON(fullInput)
 		var finalInput map[string]interface{}
 		if err := json.Unmarshal([]byte(repairedJSON), &finalInput); err != nil {
-			log.Warnf("kiro: failed to parse accumulated tool input: %v, raw: %s", err, fullInput)
+			log.Warnf("kiro: failed to parse accumulated tool input: %v, raw_bytes=%d", err, len(fullInput))
 			finalInput = make(map[string]interface{})
 		}
 

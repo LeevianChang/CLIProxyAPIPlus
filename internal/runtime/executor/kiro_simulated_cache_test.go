@@ -155,3 +155,21 @@ func TestCalibrateKiroSimulatedCacheToTotalInputKeepsDistribution(t *testing.T) 
 		t.Fatalf("calibrated result read=%d creation=%d uncached=%d, want 200/600/200", result.ReadTokens, result.CreationTokens, result.UncachedTokens)
 	}
 }
+
+func TestCalibrateKiroSimulatedCacheToTotalInputTreatsLargeCalibratedHistoryAsRead(t *testing.T) {
+	result := calibrateKiroSimulatedCacheToTotalInput(kiroSimulatedCacheResult{
+		CreationTokens: 1200,
+		UncachedTokens: 1300,
+		Simulated:      true,
+	}, 27000)
+
+	if result.ReadTokens <= 0 {
+		t.Fatalf("calibrated read=%d, want positive", result.ReadTokens)
+	}
+	if result.CreationTokens != 0 {
+		t.Fatalf("calibrated creation=%d, want 0", result.CreationTokens)
+	}
+	if got := result.ReadTokens + result.CreationTokens + result.UncachedTokens; got != 27000 {
+		t.Fatalf("token sum = %d, want 27000", got)
+	}
+}

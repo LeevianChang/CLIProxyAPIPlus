@@ -104,13 +104,7 @@ func simulateKiroPromptCache(authKey, model string, source sdktranslator.Format,
 		prevTokens = bp.Tokens
 	}
 
-	// Dynamic minimum uncached: 5% of total input, at least 100 tokens
-	// This better reflects real caching behavior where the last user turn
-	// and new tool results are never cached
-	minUncached := int64(float64(totalInputTokens) * kiroSimulatedCacheMinUncachedRate)
-	if minUncached < kiroSimulatedCacheMinUncachedAbs {
-		minUncached = kiroSimulatedCacheMinUncachedAbs
-	}
+	minUncached := kiroMinimumUncachedTokens(totalInputTokens)
 	if totalInputTokens > minUncached {
 		maxCachedTokens := totalInputTokens - minUncached
 		cachedTokens := result.ReadTokens + result.CreationTokens
@@ -136,6 +130,14 @@ func simulateKiroPromptCache(authKey, model string, source sdktranslator.Format,
 		result.UncachedTokens = 0
 	}
 	return result
+}
+
+func kiroMinimumUncachedTokens(totalInputTokens int64) int64 {
+	minUncached := int64(float64(totalInputTokens) * kiroSimulatedCacheMinUncachedRate)
+	if minUncached < kiroSimulatedCacheMinUncachedAbs {
+		minUncached = kiroSimulatedCacheMinUncachedAbs
+	}
+	return minUncached
 }
 
 func computeKiroCacheBreakpoints(model string, source sdktranslator.Format, payload []byte) []kiroCacheBreakpoint {
