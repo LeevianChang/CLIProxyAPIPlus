@@ -134,7 +134,7 @@ func TestSimulateKiroPromptCacheKeepsMinimumUncachedTokens(t *testing.T) {
 
 func TestKiroCreditCalibratedInputTokens(t *testing.T) {
 	got := kiroCreditCalibratedInputTokens(0.03484375907131012, 5)
-	want := int64(1020)
+	want := int64(672)
 	if got != want {
 		t.Fatalf("calibrated input = %d, want %d", got, want)
 	}

@@ -67,8 +67,9 @@ const (
 	kiroStreamingReadTimeout = 300 * time.Second
 
 	// Kiro metering events are credits, not Anthropic token price buckets.
-	// Recent Kiro logs match roughly 1 credit == 30k input-equivalent tokens.
-	kiroCreditInputTokenRatio = 30000.0
+	// Conservative Kiro credit-to-token calibration. 10k credits roughly maps to
+	// 80M Opus input-equivalent tokens, but we intentionally overcount for now.
+	kiroCreditInputTokenRatio = 20000.0
 	kiroCreditOutputRatio     = 5.0
 )
 
