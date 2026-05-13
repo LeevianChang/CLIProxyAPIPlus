@@ -1251,6 +1251,11 @@ func (e *KiroExecutor) executeWithRetry(ctx context.Context, auth *cliproxyauth.
 			cacheResult := simulateKiroPromptCache(getAccountKey(auth), payloadRequestedModel(opts, req.Model), from, cachePayload, usageInfo.InputTokens)
 			if calibratedInput := kiroCreditCalibratedInputTokens(upstreamCreditUsage, usageInfo.OutputTokens); calibratedInput > 0 {
 				cacheResult = calibrateKiroSimulatedCacheToTotalInput(cacheResult, calibratedInput)
+				if !cacheResult.Simulated {
+					usageInfo.InputTokens = calibratedInput
+					usageInfo.CachedTokens = 0
+					usageInfo.CacheWriteTokens = 0
+				}
 				log.Infof("kiro: calibrated non-stream simulated cache from credits=%.4f target_input=%d read=%d creation=%d uncached=%d model=%s",
 					upstreamCreditUsage, calibratedInput, cacheResult.ReadTokens, cacheResult.CreationTokens, cacheResult.UncachedTokens, payloadRequestedModel(opts, req.Model))
 			}
