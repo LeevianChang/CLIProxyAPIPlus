@@ -2026,13 +2026,14 @@ func (e *KiroExecutor) parseEventStream(body io.Reader) (string, []kiroclaude.Ki
 				}
 				// cacheReadInputTokens - tokens read from cache
 				if cacheReadTokens, ok := tokenUsage["cacheReadInputTokens"].(float64); ok {
+					usageInfo.CachedTokens = int64(cacheReadTokens)
 					// Add to input tokens if we have uncached tokens, otherwise use as input
 					if usageInfo.InputTokens > 0 {
-						usageInfo.InputTokens += int64(cacheReadTokens)
+						usageInfo.InputTokens += usageInfo.CachedTokens
 					} else {
-						usageInfo.InputTokens = int64(cacheReadTokens)
+						usageInfo.InputTokens = usageInfo.CachedTokens
 					}
-					log.Debugf("kiro: parseEventStream found cacheReadInputTokens in tokenUsage: %d", int64(cacheReadTokens))
+					log.Debugf("kiro: parseEventStream found cacheReadInputTokens in tokenUsage: %d", usageInfo.CachedTokens)
 				}
 				// contextUsagePercentage - can be used as fallback for input token estimation
 				if ctxPct, ok := tokenUsage["contextUsagePercentage"].(float64); ok {
@@ -3364,14 +3365,15 @@ func (e *KiroExecutor) streamToChannel(ctx context.Context, body io.Reader, out 
 				}
 				// cacheReadInputTokens - tokens read from cache
 				if cacheReadTokens, ok := tokenUsage["cacheReadInputTokens"].(float64); ok {
+					totalUsage.CachedTokens = int64(cacheReadTokens)
 					// Add to input tokens if we have uncached tokens, otherwise use as input
 					if totalUsage.InputTokens > 0 {
-						totalUsage.InputTokens += int64(cacheReadTokens)
+						totalUsage.InputTokens += totalUsage.CachedTokens
 					} else {
-						totalUsage.InputTokens = int64(cacheReadTokens)
+						totalUsage.InputTokens = totalUsage.CachedTokens
 					}
 					hasUpstreamUsage = true
-					log.Debugf("kiro: streamToChannel found cacheReadInputTokens in tokenUsage: %d", int64(cacheReadTokens))
+					log.Debugf("kiro: streamToChannel found cacheReadInputTokens in tokenUsage: %d", totalUsage.CachedTokens)
 				}
 				// contextUsagePercentage - can be used as fallback for input token estimation
 				if ctxPct, ok := tokenUsage["contextUsagePercentage"].(float64); ok {

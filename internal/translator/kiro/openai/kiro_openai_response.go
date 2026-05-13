@@ -72,6 +72,17 @@ func BuildOpenAIResponseWithReasoning(content, reasoningContent string, toolUses
 		log.Debugf("kiro-openai: buildOpenAIResponse using fallback finish_reason: %s", finishReason)
 	}
 
+	usagePayload := map[string]interface{}{
+		"prompt_tokens":     usageInfo.InputTokens,
+		"completion_tokens": usageInfo.OutputTokens,
+		"total_tokens":      usageInfo.InputTokens + usageInfo.OutputTokens,
+	}
+	if usageInfo.CachedTokens > 0 {
+		usagePayload["prompt_tokens_details"] = map[string]interface{}{
+			"cached_tokens": usageInfo.CachedTokens,
+		}
+	}
+
 	response := map[string]interface{}{
 		"id":      "chatcmpl-" + uuid.New().String()[:24],
 		"object":  "chat.completion",
@@ -84,11 +95,7 @@ func BuildOpenAIResponseWithReasoning(content, reasoningContent string, toolUses
 				"finish_reason": finishReason,
 			},
 		},
-		"usage": map[string]interface{}{
-			"prompt_tokens":     usageInfo.InputTokens,
-			"completion_tokens": usageInfo.OutputTokens,
-			"total_tokens":      usageInfo.InputTokens + usageInfo.OutputTokens,
-		},
+		"usage": usagePayload,
 	}
 
 	result, _ := json.Marshal(response)
