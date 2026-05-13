@@ -134,7 +134,7 @@ func TestSimulateKiroPromptCacheKeepsMinimumUncachedTokens(t *testing.T) {
 
 func TestKiroCreditCalibratedInputTokens(t *testing.T) {
 	got := kiroCreditCalibratedInputTokens(0.03484375907131012, 5)
-	want := int64(672)
+	want := int64(1020)
 	if got != want {
 		t.Fatalf("calibrated input = %d, want %d", got, want)
 	}
@@ -171,5 +171,23 @@ func TestCalibrateKiroSimulatedCacheToTotalInputTreatsLargeCalibratedHistoryAsRe
 	}
 	if got := result.ReadTokens + result.CreationTokens + result.UncachedTokens; got != 27000 {
 		t.Fatalf("token sum = %d, want 27000", got)
+	}
+}
+
+func TestCalibrateKiroSimulatedCacheToTotalInputTreatsOversizedLocalPrefixAsRead(t *testing.T) {
+	result := calibrateKiroSimulatedCacheToTotalInput(kiroSimulatedCacheResult{
+		CreationTokens: 39881,
+		UncachedTokens: 2099,
+		Simulated:      true,
+	}, 7766)
+
+	if result.ReadTokens != 5667 {
+		t.Fatalf("calibrated read=%d, want 5667", result.ReadTokens)
+	}
+	if result.CreationTokens != 0 {
+		t.Fatalf("calibrated creation=%d, want 0", result.CreationTokens)
+	}
+	if result.UncachedTokens != 2099 {
+		t.Fatalf("calibrated uncached=%d, want 2099", result.UncachedTokens)
 	}
 }

@@ -67,9 +67,13 @@ const (
 	kiroStreamingReadTimeout = 300 * time.Second
 
 	// Kiro metering events are credits, not Anthropic token price buckets.
-	// Conservative Kiro credit-to-token calibration. 10k credits roughly maps to
-	// 80M Opus input-equivalent tokens, but we intentionally overcount for now.
-	kiroCreditInputTokenRatio = 20000.0
+	// Current values are empirical and intentionally kept as-is for continuity.
+	// Opus 4.7 list prices imply output/input ~= 3.0, creation/input ~= 1.25,
+	// and read/input ~= 0.03. outputRatio=5.0 therefore prices output
+	// conservatively, while inputTokenRatio=30000 makes input/cache cheaper than
+	// the previous 20000 setting. Revisit these together when the credit-to-price
+	// mapping is better understood.
+	kiroCreditInputTokenRatio = 30000.0
 	kiroCreditOutputRatio     = 5.0
 )
 
@@ -166,7 +170,7 @@ func calibrateKiroSimulatedCacheToTotalInput(simulated kiroSimulatedCacheResult,
 			uncached = totalInputTokens
 		}
 		readTokens := totalInputTokens - uncached
-		if readTokens > simulated.CreationTokens*2 {
+		if readTokens > simulated.CreationTokens*2 || shouldTreatKiroCalibratedHistoryAsRead(simulated, totalInputTokens, uncached, readTokens) {
 			simulated.ReadTokens = readTokens
 			simulated.CreationTokens = 0
 			simulated.UncachedTokens = uncached
@@ -196,6 +200,19 @@ func calibrateKiroSimulatedCacheToTotalInput(simulated kiroSimulatedCacheResult,
 		simulated.UncachedTokens = 0
 	}
 	return simulated
+}
+
+func shouldTreatKiroCalibratedHistoryAsRead(simulated kiroSimulatedCacheResult, totalInputTokens, uncached, readTokens int64) bool {
+	if totalInputTokens <= 0 || uncached <= 0 || readTokens <= 0 {
+		return false
+	}
+	// When the local prompt prefix is much larger than Kiro's credit-calibrated
+	// total, the credit signal is usually an input-equivalent bill after upstream
+	// cache effects. Keep the current turn uncached and report the rest as read.
+	if simulated.CreationTokens > totalInputTokens && readTokens >= uncached*2 {
+		return true
+	}
+	return false
 }
 
 func kiroCreditCalibratedInputTokens(credits float64, outputTokens int64) int64 {
