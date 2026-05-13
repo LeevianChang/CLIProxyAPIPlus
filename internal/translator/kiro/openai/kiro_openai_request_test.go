@@ -5,6 +5,32 @@ import (
 	"testing"
 )
 
+func TestBuildKiroPayloadFromOpenAIDropsHistoryImagesKeepsCurrentImages(t *testing.T) {
+	input := []byte(`{
+  "model":"gpt-4o",
+  "messages":[
+    {"role":"user","content":[{"type":"text","text":"old image"},{"type":"image_url","image_url":{"url":"data:image/jpeg;base64,oldbase64"}}]},
+    {"role":"assistant","content":"ok"},
+    {"role":"user","content":[{"type":"text","text":"new image"},{"type":"image_url","image_url":{"url":"data:image/png;base64,newbase64"}}]}
+  ]
+}`)
+
+	out, _ := BuildKiroPayloadFromOpenAI(input, "claude-sonnet-4.6", "", "AI_EDITOR", false, false, nil, nil)
+	var payload KiroPayload
+	if err := json.Unmarshal(out, &payload); err != nil {
+		t.Fatalf("unmarshal payload: %v", err)
+	}
+	if len(payload.ConversationState.History) == 0 || payload.ConversationState.History[0].UserInputMessage == nil {
+		t.Fatalf("expected history user message, payload=%s", out)
+	}
+	if got := len(payload.ConversationState.History[0].UserInputMessage.Images); got != 0 {
+		t.Fatalf("history images=%d, want 0", got)
+	}
+	if got := len(payload.ConversationState.CurrentMessage.UserInputMessage.Images); got != 1 {
+		t.Fatalf("current images=%d, want 1", got)
+	}
+}
+
 // TestToolResultsAttachedToCurrentMessage verifies that tool results from "tool" role messages
 // are properly attached to the current user message (the last message in the conversation).
 // This is critical for LiteLLM-translated requests where tool results appear as separate messages.

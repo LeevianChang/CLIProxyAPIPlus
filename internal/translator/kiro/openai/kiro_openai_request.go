@@ -574,6 +574,10 @@ func processOpenAIMessages(messages gjson.Result, modelID, origin string) ([]Kir
 			toolResults = append(pendingToolResults, toolResults...)
 			pendingToolResults = nil // Reset pending tool results
 
+			if !isLastMessage && len(userMsg.Images) > 0 {
+				log.Debugf("kiro-openai: dropping %d image(s) from history user message; Kiro only accepts images on current message", len(userMsg.Images))
+				userMsg.Images = nil
+			}
 			if isLastMessage {
 				currentUserMsg = &userMsg
 				currentToolResults = toolResults

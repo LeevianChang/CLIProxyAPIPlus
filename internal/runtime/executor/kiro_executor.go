@@ -32,6 +32,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/usage"
 	sdktranslator "github.com/router-for-me/CLIProxyAPI/v6/sdk/translator"
 	log "github.com/sirupsen/logrus"
+	"github.com/tidwall/gjson"
 )
 
 const (
@@ -136,6 +137,37 @@ func shouldLogKiroUsagePayload(eventType string, payload []byte) bool {
 
 func logKiroRawEventPayload(source, eventType string, payload []byte) {
 	log.Infof("kiro: %s raw usage-related event type=%s payload=%s", source, eventType, string(payload))
+}
+
+func summarizeKiroPayloadStructure(payload []byte) string {
+	root := gjson.ParseBytes(payload)
+	history := root.Get("conversationState.history")
+	current := root.Get("conversationState.currentMessage.userInputMessage")
+	currentImages := len(current.Get("images").Array())
+	currentToolResults := len(current.Get("userInputMessageContext.toolResults").Array())
+	currentTools := len(current.Get("userInputMessageContext.tools").Array())
+	historyCount := len(history.Array())
+	historyImages := 0
+	historyToolResults := 0
+	historyToolUses := 0
+	history.ForEach(func(_, item gjson.Result) bool {
+		historyImages += len(item.Get("userInputMessage.images").Array())
+		historyToolResults += len(item.Get("userInputMessage.userInputMessageContext.toolResults").Array())
+		historyToolUses += len(item.Get("assistantResponseMessage.toolUses").Array())
+		return true
+	})
+	return fmt.Sprintf("conversationId=%s model=%s history=%d current_images=%d history_images=%d current_tool_results=%d history_tool_results=%d history_tool_uses=%d current_tools=%d payload_bytes=%d",
+		root.Get("conversationState.conversationId").String(),
+		current.Get("modelId").String(),
+		historyCount,
+		currentImages,
+		historyImages,
+		currentToolResults,
+		historyToolResults,
+		historyToolUses,
+		currentTools,
+		len(payload),
+	)
 }
 
 // endpointAliases maps user preference values to canonical endpoint names.
@@ -1051,7 +1083,7 @@ func (e *KiroExecutor) executeWithRetry(ctx context.Context, auth *cliproxyauth.
 				appendAPIResponseChunk(ctx, e.cfg, b)
 				log.Debugf("kiro request error, status: %d, body: %s", httpResp.StatusCode, summarizeErrorBody(httpResp.Header.Get("Content-Type"), b))
 				if httpResp.StatusCode >= 400 && httpResp.StatusCode < 500 {
-					log.Warnf("kiro: %d request payload (truncated): %s", httpResp.StatusCode, summarizeErrorBody("application/json", kiroPayload))
+					log.Warnf("kiro: %d request payload summary: %s", httpResp.StatusCode, summarizeKiroPayloadStructure(kiroPayload))
 				}
 				err = statusErr{code: httpResp.StatusCode, msg: string(b)}
 				if errClose := httpResp.Body.Close(); errClose != nil {
@@ -1390,7 +1422,7 @@ func (e *KiroExecutor) executeStreamWithRetry(ctx context.Context, auth *cliprox
 				appendAPIResponseChunk(ctx, e.cfg, respBody)
 
 				log.Warnf("kiro: received 400 error (attempt %d/%d), body: %s", attempt+1, maxRetries+1, summarizeErrorBody(httpResp.Header.Get("Content-Type"), respBody))
-				log.Warnf("kiro: 400 request payload (truncated): %s", summarizeErrorBody("application/json", kiroPayload))
+				log.Warnf("kiro: 400 request payload summary: %s", summarizeKiroPayloadStructure(kiroPayload))
 
 				// 400 errors indicate request validation issues - return immediately without retry
 				return nil, statusErr{code: httpResp.StatusCode, msg: string(respBody)}

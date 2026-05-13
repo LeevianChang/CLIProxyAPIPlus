@@ -647,6 +647,10 @@ func processMessages(messages gjson.Result, modelID, origin string) ([]KiroHisto
 				}
 				log.Debugf("kiro: user content was empty, using default: %s", userMsg.Content)
 			}
+			if !isLastMessage && len(userMsg.Images) > 0 {
+				log.Debugf("kiro: dropping %d image(s) from history user message; Kiro only accepts images on current message", len(userMsg.Images))
+				userMsg.Images = nil
+			}
 			if isLastMessage {
 				currentUserMsg = &userMsg
 				currentToolResults = toolResults
