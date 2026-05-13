@@ -78,8 +78,16 @@ func BuildOpenAIResponseWithReasoning(content, reasoningContent string, toolUses
 		"total_tokens":      usageInfo.InputTokens + usageInfo.OutputTokens,
 	}
 	if usageInfo.CachedTokens > 0 {
-		usagePayload["prompt_tokens_details"] = map[string]interface{}{
+		promptTokensDetails := map[string]interface{}{
 			"cached_tokens": usageInfo.CachedTokens,
+		}
+		if usageInfo.CacheWriteTokens > 0 {
+			promptTokensDetails["cache_creation_tokens"] = usageInfo.CacheWriteTokens
+		}
+		usagePayload["prompt_tokens_details"] = promptTokensDetails
+	} else if usageInfo.CacheWriteTokens > 0 {
+		usagePayload["prompt_tokens_details"] = map[string]interface{}{
+			"cache_creation_tokens": usageInfo.CacheWriteTokens,
 		}
 	}
 
@@ -259,8 +267,16 @@ func BuildOpenAIStreamUsageChunk(model string, usageInfo usage.Detail) []byte {
 		"total_tokens":      usageInfo.InputTokens + usageInfo.OutputTokens,
 	}
 	if usageInfo.CachedTokens > 0 {
-		usagePayload["prompt_tokens_details"] = map[string]interface{}{
+		promptTokensDetails := map[string]interface{}{
 			"cached_tokens": usageInfo.CachedTokens,
+		}
+		if usageInfo.CacheWriteTokens > 0 {
+			promptTokensDetails["cache_creation_tokens"] = usageInfo.CacheWriteTokens
+		}
+		usagePayload["prompt_tokens_details"] = promptTokensDetails
+	} else if usageInfo.CacheWriteTokens > 0 {
+		usagePayload["prompt_tokens_details"] = map[string]interface{}{
+			"cache_creation_tokens": usageInfo.CacheWriteTokens,
 		}
 	}
 

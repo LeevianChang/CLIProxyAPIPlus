@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -64,6 +65,11 @@ const (
 	kiroFirstTokenTimeout = 15 * time.Second
 	// Streaming read timeout (how long to wait between chunks)
 	kiroStreamingReadTimeout = 300 * time.Second
+
+	// Kiro metering events are credits, not Anthropic token price buckets.
+	// Recent Kiro logs match roughly 1 credit == 30k input-equivalent tokens.
+	kiroCreditInputTokenRatio = 30000.0
+	kiroCreditOutputRatio     = 5.0
 )
 
 // retryableHTTPStatusCodes defines HTTP status codes that are considered retryable.
@@ -118,25 +124,131 @@ func applyKiroSimulatedCache(detail *usage.Detail, simulated kiroSimulatedCacheR
 	if detail == nil || !simulated.Simulated || detail.CachedTokens > 0 || detail.CacheWriteTokens > 0 {
 		return
 	}
-	if simulated.UncachedTokens > 0 {
-		detail.InputTokens = simulated.UncachedTokens
-	}
+	detail.InputTokens = simulated.UncachedTokens
 	detail.CachedTokens = simulated.ReadTokens
 	detail.CacheWriteTokens = simulated.CreationTokens
 	detail.TotalTokens = detail.InputTokens + detail.OutputTokens
 }
 
-func shouldLogKiroUsagePayload(eventType string, payload []byte) bool {
-	switch eventType {
-	case "messageMetadataEvent", "metadataEvent", "usageEvent", "usage", "metricsEvent", "meteringEvent", "contextUsageEvent":
-		return true
+func applyKiroSimulatedCacheDirect(detail *usage.Detail, simulated kiroSimulatedCacheResult) {
+	if detail == nil || !simulated.Simulated {
+		return
 	}
-	lower := strings.ToLower(string(payload))
-	return strings.Contains(lower, "tokenusage") || strings.Contains(lower, "cached") || strings.Contains(lower, "cache") || strings.Contains(lower, "usage")
+	detail.InputTokens = simulated.UncachedTokens
+	detail.CachedTokens = simulated.ReadTokens
+	detail.CacheWriteTokens = simulated.CreationTokens
+	detail.TotalTokens = detail.InputTokens + detail.OutputTokens
+}
+
+func calibrateKiroSimulatedCacheToTotalInput(simulated kiroSimulatedCacheResult, totalInputTokens int64) kiroSimulatedCacheResult {
+	if !simulated.Simulated || totalInputTokens <= 0 {
+		return simulated
+	}
+	oldTotal := simulated.UncachedTokens + simulated.ReadTokens + simulated.CreationTokens
+	if oldTotal <= 0 {
+		simulated.UncachedTokens = totalInputTokens
+		simulated.ReadTokens = 0
+		simulated.CreationTokens = 0
+		return simulated
+	}
+	readRatio := float64(simulated.ReadTokens) / float64(oldTotal)
+	creationRatio := float64(simulated.CreationTokens) / float64(oldTotal)
+	simulated.ReadTokens = int64(math.Round(float64(totalInputTokens) * readRatio))
+	simulated.CreationTokens = int64(math.Round(float64(totalInputTokens) * creationRatio))
+	if cached := simulated.ReadTokens + simulated.CreationTokens; cached > totalInputTokens {
+		excess := cached - totalInputTokens
+		if simulated.CreationTokens >= excess {
+			simulated.CreationTokens -= excess
+		} else {
+			excess -= simulated.CreationTokens
+			simulated.CreationTokens = 0
+			if simulated.ReadTokens >= excess {
+				simulated.ReadTokens -= excess
+			} else {
+				simulated.ReadTokens = 0
+			}
+		}
+	}
+	simulated.UncachedTokens = totalInputTokens - simulated.ReadTokens - simulated.CreationTokens
+	if simulated.UncachedTokens < 0 {
+		simulated.UncachedTokens = 0
+	}
+	return simulated
+}
+
+func kiroCreditCalibratedInputTokens(credits float64, outputTokens int64) int64 {
+	if credits <= 0 {
+		return 0
+	}
+	target := credits*kiroCreditInputTokenRatio - float64(outputTokens)*kiroCreditOutputRatio
+	if target <= 0 {
+		return 0
+	}
+	return int64(math.Round(target))
+}
+
+func estimateKiroInputTokens(model string, source sdktranslator.Format, originalReq, kiroBody []byte) int64 {
+	enc, encErr := getTokenizer(model)
+	if encErr != nil {
+		if len(kiroBody) > 0 {
+			estimated := int64(len(kiroBody) / 4)
+			if estimated == 0 {
+				return 1
+			}
+			return estimated
+		}
+		return 0
+	}
+
+	if source.String() == "openai" {
+		if inp, err := countOpenAIChatTokens(enc, originalReq); err == nil && inp > 0 {
+			return inp
+		}
+	}
+	if inp, err := countClaudeChatTokens(enc, originalReq); err == nil && inp > 0 {
+		return inp
+	}
+	if inp, err := countClaudeChatTokens(enc, kiroBody); err == nil && inp > 0 {
+		return inp
+	}
+	if inp, err := countOpenAIChatTokens(enc, originalReq); err == nil && inp > 0 {
+		return inp
+	}
+	if len(kiroBody) > 0 {
+		estimated := int64(len(kiroBody) / 4)
+		if estimated == 0 {
+			return 1
+		}
+		return estimated
+	}
+	return 0
+}
+
+func estimateKiroToolUseOutputTokens(model string, toolUses []kiroclaude.KiroToolUse) int64 {
+	if len(toolUses) == 0 {
+		return 0
+	}
+	payload, err := json.Marshal(toolUses)
+	if err != nil || len(payload) == 0 {
+		return int64(len(toolUses))
+	}
+	if enc, encErr := getTokenizer(model); encErr == nil {
+		if tokenCount, countErr := enc.Count(string(payload)); countErr == nil && tokenCount > 0 {
+			return int64(tokenCount)
+		}
+	}
+	estimated := int64(len(payload) / 4)
+	if estimated == 0 {
+		return 1
+	}
+	return estimated
 }
 
 func logKiroRawEventPayload(source, eventType string, payload []byte) {
-	log.Infof("kiro: %s raw usage-related event type=%s payload=%s", source, eventType, string(payload))
+	if eventType == "assistantResponseEvent" {
+		return
+	}
+	log.Infof("kiro: %s raw upstream event type=%s payload=%s", source, eventType, string(payload))
 }
 
 func summarizeKiroPayloadStructure(payload []byte) string {
@@ -1098,21 +1210,18 @@ func (e *KiroExecutor) executeWithRetry(ctx context.Context, auth *cliproxyauth.
 				}
 			}()
 
-			content, toolUses, usageInfo, stopReason, err := e.parseEventStream(httpResp.Body)
+			content, toolUses, usageInfo, upstreamCreditUsage, stopReason, err := e.parseEventStream(httpResp.Body)
 			if err != nil {
 				recordAPIResponseError(ctx, e.cfg, err)
 				return resp, err
 			}
+			log.Infof("kiro: upstream usage parsed input=%d output=%d cached=%d cache_write=%d total=%d content_chars=%d tool_uses=%d stop_reason=%s", usageInfo.InputTokens, usageInfo.OutputTokens, usageInfo.CachedTokens, usageInfo.CacheWriteTokens, usageInfo.TotalTokens, len(content), len(toolUses), stopReason)
 
 			// Fallback for usage if missing from upstream
 
 			// 1. Estimate InputTokens if missing
 			if usageInfo.InputTokens == 0 {
-				if enc, encErr := getTokenizer(req.Model); encErr == nil {
-					if inp, countErr := countOpenAIChatTokens(enc, opts.OriginalRequest); countErr == nil {
-						usageInfo.InputTokens = inp
-					}
-				}
+				usageInfo.InputTokens = estimateKiroInputTokens(req.Model, from, opts.OriginalRequest, body)
 			}
 
 			// 2. Estimate OutputTokens if missing and content is available
@@ -1131,12 +1240,20 @@ func (e *KiroExecutor) executeWithRetry(ctx context.Context, auth *cliproxyauth.
 					}
 				}
 			}
+			if usageInfo.OutputTokens == 0 && len(toolUses) > 0 {
+				usageInfo.OutputTokens = estimateKiroToolUseOutputTokens(req.Model, toolUses)
+			}
 
 			cachePayload := opts.OriginalRequest
 			if from.String() == "kiro" {
 				cachePayload = body
 			}
 			cacheResult := simulateKiroPromptCache(getAccountKey(auth), payloadRequestedModel(opts, req.Model), from, cachePayload, usageInfo.InputTokens)
+			if calibratedInput := kiroCreditCalibratedInputTokens(upstreamCreditUsage, usageInfo.OutputTokens); calibratedInput > 0 {
+				cacheResult = calibrateKiroSimulatedCacheToTotalInput(cacheResult, calibratedInput)
+				log.Infof("kiro: calibrated non-stream simulated cache from credits=%.4f target_input=%d read=%d creation=%d uncached=%d model=%s",
+					upstreamCreditUsage, calibratedInput, cacheResult.ReadTokens, cacheResult.CreationTokens, cacheResult.UncachedTokens, payloadRequestedModel(opts, req.Model))
+			}
 			applyKiroSimulatedCache(&usageInfo, cacheResult)
 			if cacheResult.Simulated {
 				log.Infof("kiro: simulated prompt cache read=%d creation=%d uncached=%d model=%s simulated=true", cacheResult.ReadTokens, cacheResult.CreationTokens, cacheResult.UncachedTokens, payloadRequestedModel(opts, req.Model))
@@ -1144,6 +1261,7 @@ func (e *KiroExecutor) executeWithRetry(ctx context.Context, auth *cliproxyauth.
 
 			// 3. Update TotalTokens
 			usageInfo.TotalTokens = usageInfo.InputTokens + usageInfo.OutputTokens
+			log.Infof("kiro: final usage after simulated cache input=%d output=%d cache_read=%d cache_creation=%d total=%d model=%s", usageInfo.InputTokens, usageInfo.OutputTokens, usageInfo.CachedTokens, usageInfo.CacheWriteTokens, usageInfo.TotalTokens, payloadRequestedModel(opts, req.Model))
 
 			appendAPIResponseChunk(ctx, e.cfg, []byte(content))
 			reporter.publish(ctx, usageInfo)
@@ -1547,14 +1665,7 @@ func (e *KiroExecutor) executeStreamWithRetry(ctx context.Context, auth *cliprox
 			rateLimiter.MarkTokenSuccess(tokenKey)
 			log.Debugf("kiro: stream request successful, token %s marked as success", tokenKey)
 
-			totalInputTokens := int64(0)
-			if enc, err := getTokenizer(req.Model); err == nil {
-				if inp, err := countClaudeChatTokens(enc, body); err == nil && inp > 0 {
-					totalInputTokens = inp
-				} else if inp, err := countOpenAIChatTokens(enc, opts.OriginalRequest); err == nil && inp > 0 {
-					totalInputTokens = inp
-				}
-			}
+			totalInputTokens := estimateKiroInputTokens(req.Model, from, opts.OriginalRequest, body)
 			cachePayload := opts.OriginalRequest
 			if from.String() == "kiro" {
 				cachePayload = body
@@ -1940,8 +2051,8 @@ type eventStreamMessage struct {
 // parseEventStream parses AWS Event Stream binary format.
 // Extracts text content, tool uses, and stop_reason from the response.
 // Supports embedded [Called ...] tool calls and input buffering for toolUseEvent.
-// Returns: content, toolUses, usageInfo, stopReason, error
-func (e *KiroExecutor) parseEventStream(body io.Reader) (string, []kiroclaude.KiroToolUse, usage.Detail, string, error) {
+// Returns: content, toolUses, usageInfo, upstreamCreditUsage, stopReason, error
+func (e *KiroExecutor) parseEventStream(body io.Reader) (string, []kiroclaude.KiroToolUse, usage.Detail, float64, string, error) {
 	var content strings.Builder
 	var toolUses []kiroclaude.KiroToolUse
 	var usageInfo usage.Detail
@@ -1953,13 +2064,14 @@ func (e *KiroExecutor) parseEventStream(body io.Reader) (string, []kiroclaude.Ki
 	var currentToolUse *kiroclaude.ToolUseState
 
 	// Upstream usage tracking - Kiro API returns credit usage and context percentage
+	var upstreamCreditUsage float64       // Credit usage from upstream (e.g., 1.458)
 	var upstreamContextPercentage float64 // Context usage percentage from upstream (e.g., 78.56)
 
 	for {
 		msg, eventErr := e.readEventStreamMessage(reader)
 		if eventErr != nil {
 			log.Errorf("kiro: parseEventStream error: %v", eventErr)
-			return content.String(), toolUses, usageInfo, stopReason, eventErr
+			return content.String(), toolUses, usageInfo, upstreamCreditUsage, stopReason, eventErr
 		}
 		if msg == nil {
 			// Normal end of stream (EOF)
@@ -1977,9 +2089,7 @@ func (e *KiroExecutor) parseEventStream(body io.Reader) (string, []kiroclaude.Ki
 			log.Debugf("kiro: skipping malformed event: %v", err)
 			continue
 		}
-		if shouldLogKiroUsagePayload(eventType, payload) {
-			logKiroRawEventPayload("parseEventStream", eventType, payload)
-		}
+		logKiroRawEventPayload("parseEventStream", eventType, payload)
 
 		// Check for error/exception events in the payload (Kiro API may return errors with HTTP 200)
 		// These can appear as top-level fields or nested within the event
@@ -1990,7 +2100,7 @@ func (e *KiroExecutor) parseEventStream(body io.Reader) (string, []kiroclaude.Ki
 				errMsg = msg
 			}
 			log.Errorf("kiro: received AWS error in event stream: type=%s, message=%s", errType, errMsg)
-			return "", nil, usageInfo, stopReason, fmt.Errorf("kiro API error: %s - %s", errType, errMsg)
+			return "", nil, usageInfo, upstreamCreditUsage, stopReason, fmt.Errorf("kiro API error: %s - %s", errType, errMsg)
 		}
 		if errType, hasErrType := event["type"].(string); hasErrType && (errType == "error" || errType == "exception") {
 			// Generic error event
@@ -2003,7 +2113,7 @@ func (e *KiroExecutor) parseEventStream(body io.Reader) (string, []kiroclaude.Ki
 				}
 			}
 			log.Errorf("kiro: received error event in stream: type=%s, message=%s", errType, errMsg)
-			return "", nil, usageInfo, stopReason, fmt.Errorf("kiro API error: %s", errMsg)
+			return "", nil, usageInfo, upstreamCreditUsage, stopReason, fmt.Errorf("kiro API error: %s", errMsg)
 		}
 
 		// Extract stop_reason from various event formats
@@ -2237,6 +2347,9 @@ func (e *KiroExecutor) parseEventStream(body io.Reader) (string, []kiroclaude.Ki
 				if u, ok := metering["usage"].(float64); ok {
 					usageVal = u
 				}
+				if unit == "credit" && usageVal > 0 {
+					upstreamCreditUsage = usageVal
+				}
 				log.Infof("kiro: parseEventStream received meteringEvent: usage=%.2f %s", usageVal, unit)
 				// Store metering info for potential billing/statistics purposes
 				// Note: This is separate from token counts - it's AWS billing units
@@ -2251,6 +2364,9 @@ func (e *KiroExecutor) parseEventStream(body io.Reader) (string, []kiroclaude.Ki
 					usageVal = u
 				}
 				if unit != "" || usageVal > 0 {
+					if unit == "credit" && usageVal > 0 {
+						upstreamCreditUsage = usageVal
+					}
 					log.Infof("kiro: parseEventStream received meteringEvent (direct): usage=%.2f %s", usageVal, unit)
 				}
 			}
@@ -2310,7 +2426,7 @@ func (e *KiroExecutor) parseEventStream(body io.Reader) (string, []kiroclaude.Ki
 
 			// For other errors, return the error
 			if errMsg != "" {
-				return "", nil, usageInfo, stopReason, fmt.Errorf("kiro API error (%s): %s", errType, errMsg)
+				return "", nil, usageInfo, upstreamCreditUsage, stopReason, fmt.Errorf("kiro API error (%s): %s", errType, errMsg)
 			}
 
 		default:
@@ -2421,7 +2537,7 @@ func (e *KiroExecutor) parseEventStream(body io.Reader) (string, []kiroclaude.Ki
 		}
 	}
 
-	return cleanedContent, toolUses, usageInfo, stopReason, nil
+	return cleanedContent, toolUses, usageInfo, upstreamCreditUsage, stopReason, nil
 }
 
 // readEventStreamMessage reads and validates a single AWS Event Stream message.
@@ -2624,8 +2740,9 @@ func (e *KiroExecutor) extractEventTypeFromBytes(headers []byte) string {
 func (e *KiroExecutor) streamToChannel(ctx context.Context, body io.Reader, out chan<- cliproxyexecutor.StreamChunk, targetFormat sdktranslator.Format, model string, originalReq, claudeBody []byte, reporter *usageReporter, thinkingEnabled bool, simulatedCache kiroSimulatedCacheResult) {
 	reader := bufio.NewReaderSize(body, 20*1024*1024) // 20MB buffer to match other providers
 	var totalUsage usage.Detail
-	var hasToolUses bool          // Track if any tool uses were emitted
-	var upstreamStopReason string // Track stop_reason from upstream events
+	var hasToolUses bool            // Track if any tool uses were emitted
+	var upstreamStopReason string   // Track stop_reason from upstream events
+	var accumulatedToolUseBytes int // Track total bytes of tool_use input JSON for output token estimation
 
 	// Tool use state tracking for input buffering and deduplication
 	processedIDs := make(map[string]bool)
@@ -2666,37 +2783,20 @@ func (e *KiroExecutor) streamToChannel(ctx context.Context, body io.Reader, out 
 	// Buffer for handling partial tag matches at chunk boundaries
 	var pendingContent strings.Builder // Buffer content that might be part of a tag
 
-	// Pre-calculate input tokens from request if possible
-	// Kiro uses Claude format, so try Claude format first, then OpenAI format, then fallback
-	if enc, err := getTokenizer(model); err == nil {
-		var inputTokens int64
-		var countMethod string
-
-		// Try Claude format first (Kiro uses Claude API format)
-		if inp, err := countClaudeChatTokens(enc, claudeBody); err == nil && inp > 0 {
-			inputTokens = inp
-			countMethod = "claude"
-		} else if inp, err := countOpenAIChatTokens(enc, originalReq); err == nil && inp > 0 {
-			// Fallback to OpenAI format (for OpenAI-compatible requests)
-			inputTokens = inp
-			countMethod = "openai"
-		} else {
-			// Final fallback: estimate from raw request size (roughly 4 chars per token)
-			inputTokens = int64(len(claudeBody) / 4)
-			if inputTokens == 0 && len(claudeBody) > 0 {
-				inputTokens = 1
-			}
-			countMethod = "estimate"
+	// Pre-calculate input tokens from request if possible.
+	inputTokens := estimateKiroInputTokens(model, targetFormat, originalReq, claudeBody)
+	countMethod := "request"
+	if inputTokens == 0 {
+		inputTokens = int64(len(claudeBody) / 4)
+		if inputTokens == 0 && len(claudeBody) > 0 {
+			inputTokens = 1
 		}
-
-		totalUsage.InputTokens = inputTokens
-		if simulatedCache.UncachedTokens > 0 {
-			totalUsage.InputTokens = simulatedCache.UncachedTokens
-		}
-		applyKiroSimulatedCache(&totalUsage, simulatedCache)
-		log.Debugf("kiro: streamToChannel pre-calculated input tokens: %d (method: %s, claude body: %d bytes, original req: %d bytes)",
-			totalUsage.InputTokens, countMethod, len(claudeBody), len(originalReq))
+		countMethod = "estimate"
 	}
+	totalUsage.InputTokens = inputTokens
+	applyKiroSimulatedCache(&totalUsage, simulatedCache)
+	log.Debugf("kiro: streamToChannel pre-calculated input tokens: %d (method: %s, claude body: %d bytes, original req: %d bytes)",
+		totalUsage.InputTokens, countMethod, len(claudeBody), len(originalReq))
 
 	contentBlockIndex := -1
 	messageStartSent := false
@@ -2785,9 +2885,7 @@ func (e *KiroExecutor) streamToChannel(ctx context.Context, body io.Reader, out 
 			log.Warnf("kiro: failed to unmarshal event payload: %v, raw: %s", err, string(payload))
 			continue
 		}
-		if shouldLogKiroUsagePayload(eventType, payload) {
-			logKiroRawEventPayload("streamToChannel", eventType, payload)
-		}
+		logKiroRawEventPayload("streamToChannel", eventType, payload)
 
 		// Check for error/exception events in the payload (Kiro API may return errors with HTTP 200)
 		// These can appear as top-level fields or nested within the event
@@ -3317,6 +3415,7 @@ func (e *KiroExecutor) streamToChannel(ctx context.Context, body io.Reader, out 
 						log.Debugf("kiro: failed to marshal tool input: %v", err)
 						// Don't continue - still need to close the block
 					} else {
+						accumulatedToolUseBytes += len(inputJSON)
 						inputDelta := kiroclaude.BuildClaudeInputJsonDeltaEvent(string(inputJSON), contentBlockIndex)
 						sseData = sdktranslator.TranslateStream(ctx, sdktranslator.FromString("kiro"), targetFormat, model, originalReq, claudeBody, inputDelta, &translatorParam)
 						for _, chunk := range sseData {
@@ -3440,6 +3539,7 @@ func (e *KiroExecutor) streamToChannel(ctx context.Context, body io.Reader, out 
 					if err != nil {
 						log.Debugf("kiro: failed to marshal tool input in toolUseEvent: %v", err)
 					} else {
+						accumulatedToolUseBytes += len(inputJSON)
 						inputDelta := kiroclaude.BuildClaudeInputJsonDeltaEvent(string(inputJSON), contentBlockIndex)
 						sseData = sdktranslator.TranslateStream(ctx, sdktranslator.FromString("kiro"), targetFormat, model, originalReq, claudeBody, inputDelta, &translatorParam)
 						for _, chunk := range sseData {
@@ -3679,36 +3779,43 @@ func (e *KiroExecutor) streamToChannel(ctx context.Context, body io.Reader, out 
 		}
 	}
 
-	// Use contextUsagePercentage to calculate more accurate input tokens
-	// Kiro model has 200k max context, contextUsagePercentage represents the percentage used
-	// Formula: input_tokens = contextUsagePercentage * 200000 / 100
-	// Note: The effective input context is ~170k (200k - 30k reserved for output)
-	if upstreamContextPercentage > 0 && !simulatedCache.Simulated {
-		// Calculate input tokens from context percentage
-		// Using 200k as the base since that's what Kiro reports against
-		calculatedInputTokens := int64(upstreamContextPercentage * 200000 / 100)
-
-		// Only use calculated value if it's significantly different from local estimate
-		// This provides more accurate token counts based on upstream data
-		if calculatedInputTokens > 0 {
-			localEstimate := totalUsage.InputTokens
-			totalUsage.InputTokens = calculatedInputTokens
-			log.Debugf("kiro: using contextUsagePercentage (%.2f%%) to calculate input tokens: %d (local estimate was: %d)",
-				upstreamContextPercentage, calculatedInputTokens, localEstimate)
-		}
-	} else if upstreamContextPercentage > 0 {
-		log.Debugf("kiro: skipping contextUsagePercentage input override because simulated prompt cache is active (context=%.2f%%)", upstreamContextPercentage)
+	// Estimate output tokens from tool_use input JSON if no output tokens counted yet
+	if totalUsage.OutputTokens == 0 && hasToolUses && accumulatedToolUseBytes > 0 {
+		// Tool use output includes tool name, ID, and input JSON
+		// Add ~50 tokens overhead per tool call for name/ID/structure
+		toolUseTokens := int64(accumulatedToolUseBytes/4) + 50
+		totalUsage.OutputTokens = toolUseTokens
+		log.Debugf("kiro: streamToChannel estimated output tokens from tool_use: %d (bytes: %d)", toolUseTokens, accumulatedToolUseBytes)
 	}
-	applyKiroSimulatedCache(&totalUsage, simulatedCache)
+
+	calibratedInput := kiroCreditCalibratedInputTokens(upstreamCreditUsage, totalUsage.OutputTokens)
+	if calibratedInput > 0 {
+		simulatedCache = calibrateKiroSimulatedCacheToTotalInput(simulatedCache, calibratedInput)
+		log.Infof("kiro: calibrated simulated cache from credits=%.4f target_input=%d read=%d creation=%d uncached=%d model=%s",
+			upstreamCreditUsage, calibratedInput, simulatedCache.ReadTokens, simulatedCache.CreationTokens, simulatedCache.UncachedTokens, model)
+	} else if upstreamContextPercentage > 0 {
+		// Fallback when Kiro omits meteringEvent. The percentage is a context
+		// occupancy signal, so only use it if credits are unavailable.
+		calculatedTotalInput := int64(upstreamContextPercentage * 200000 / 100)
+		if calculatedTotalInput > 0 {
+			simulatedCache = calibrateKiroSimulatedCacheToTotalInput(simulatedCache, calculatedTotalInput)
+			log.Infof("kiro: calibrated simulated cache from context=%.2f%% target_input=%d read=%d creation=%d uncached=%d model=%s",
+				upstreamContextPercentage, calculatedTotalInput, simulatedCache.ReadTokens, simulatedCache.CreationTokens, simulatedCache.UncachedTokens, model)
+		}
+	}
+	applyKiroSimulatedCacheDirect(&totalUsage, simulatedCache)
 
 	totalUsage.TotalTokens = totalUsage.InputTokens + totalUsage.OutputTokens
 
 	// Log upstream usage information if received
 	if hasUpstreamUsage {
-		log.Debugf("kiro: upstream usage - credits: %.4f, context: %.2f%%, final tokens - input: %d, output: %d, total: %d",
+		log.Infof("kiro: usage before final response credits=%.4f context=%.2f%% input=%d output=%d cache_read=%d cache_write=%d total=%d",
 			upstreamCreditUsage, upstreamContextPercentage,
-			totalUsage.InputTokens, totalUsage.OutputTokens, totalUsage.TotalTokens)
+			totalUsage.InputTokens, totalUsage.OutputTokens, totalUsage.CachedTokens, totalUsage.CacheWriteTokens, totalUsage.TotalTokens)
+	} else {
+		log.Infof("kiro: upstream token usage missing or zero, local usage before final response input=%d output=%d cache_read=%d cache_write=%d total=%d content_chars=%d", totalUsage.InputTokens, totalUsage.OutputTokens, totalUsage.CachedTokens, totalUsage.CacheWriteTokens, totalUsage.TotalTokens, accumulatedContent.Len())
 	}
+	log.Infof("kiro: final stream usage after simulated cache input=%d output=%d cache_read=%d cache_creation=%d total=%d model=%s", totalUsage.InputTokens, totalUsage.OutputTokens, totalUsage.CachedTokens, totalUsage.CacheWriteTokens, totalUsage.TotalTokens, model)
 
 	// Determine stop reason: prefer upstream, then detect tool_use, default to end_turn
 	stopReason := upstreamStopReason

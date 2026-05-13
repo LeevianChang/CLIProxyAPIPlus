@@ -14,8 +14,10 @@ import (
 )
 
 const (
-	kiroSimulatedCacheDefaultTTL  = 5 * time.Minute
-	kiroSimulatedCacheExtendedTTL = time.Hour
+	kiroSimulatedCacheDefaultTTL      = 5 * time.Minute
+	kiroSimulatedCacheExtendedTTL     = time.Hour
+	kiroSimulatedCacheMinUncachedAbs  = int64(100)
+	kiroSimulatedCacheMinUncachedRate = 0.05 // 5% of total input tokens
 )
 
 type kiroSimulatedCacheResult struct {
@@ -52,6 +54,11 @@ func simulateKiroPromptCache(authKey, model string, source sdktranslator.Format,
 	breakpoints := computeKiroCacheBreakpoints(model, source, payload)
 	if len(breakpoints) == 0 || totalInputTokens <= 0 {
 		return kiroSimulatedCacheResult{UncachedTokens: totalInputTokens}
+	}
+	for i := range breakpoints {
+		if breakpoints[i].Tokens > totalInputTokens {
+			breakpoints[i].Tokens = totalInputTokens
+		}
 	}
 
 	now := time.Now()
@@ -95,6 +102,32 @@ func simulateKiroPromptCache(authKey, model string, source sdktranslator.Format,
 		kiroSimulatedCache.entries[key] = kiroSimulatedCacheEntry{Tokens: bp.Tokens, ExpiresAt: now.Add(bp.TTL)}
 		result.CreationTokens += bp.Tokens - prevTokens
 		prevTokens = bp.Tokens
+	}
+
+	// Dynamic minimum uncached: 5% of total input, at least 100 tokens
+	// This better reflects real caching behavior where the last user turn
+	// and new tool results are never cached
+	minUncached := int64(float64(totalInputTokens) * kiroSimulatedCacheMinUncachedRate)
+	if minUncached < kiroSimulatedCacheMinUncachedAbs {
+		minUncached = kiroSimulatedCacheMinUncachedAbs
+	}
+	if totalInputTokens > minUncached {
+		maxCachedTokens := totalInputTokens - minUncached
+		cachedTokens := result.ReadTokens + result.CreationTokens
+		if cachedTokens > maxCachedTokens {
+			excess := cachedTokens - maxCachedTokens
+			if result.CreationTokens >= excess {
+				result.CreationTokens -= excess
+			} else {
+				excess -= result.CreationTokens
+				result.CreationTokens = 0
+				if result.ReadTokens >= excess {
+					result.ReadTokens -= excess
+				} else {
+					result.ReadTokens = 0
+				}
+			}
+		}
 	}
 
 	cachedTokens := result.ReadTokens + result.CreationTokens
@@ -144,6 +177,7 @@ func computeClaudeKiroCacheBreakpoints(enc tokenizer.Codec, payload []byte) []ki
 			return true
 		})
 	}
+	breakpoints = appendKiroCacheBreakpoint(enc, parts, breakpoints, kiroSimulatedCacheDefaultTTL)
 
 	messages := root.Get("messages")
 	if messages.IsArray() {
@@ -190,7 +224,12 @@ func computeOpenAIKiroCacheBreakpoints(enc tokenizer.Codec, payload []byte) []ki
 
 	messages := root.Get("messages")
 	if messages.IsArray() {
+		stableBreakpointAdded := false
 		messages.ForEach(func(_, message gjson.Result) bool {
+			if message.Get("role").String() != "system" && !stableBreakpointAdded {
+				breakpoints = appendKiroCacheBreakpoint(enc, parts, breakpoints, kiroSimulatedCacheDefaultTTL)
+				stableBreakpointAdded = true
+			}
 			content := message.Get("content")
 			if content.Type == gjson.String {
 				addKiroCachePart(&parts, content.String())
@@ -207,6 +246,9 @@ func computeOpenAIKiroCacheBreakpoints(enc tokenizer.Codec, payload []byte) []ki
 			}
 			return true
 		})
+		if !stableBreakpointAdded {
+			breakpoints = appendKiroCacheBreakpoint(enc, parts, breakpoints, kiroSimulatedCacheDefaultTTL)
+		}
 	}
 
 	if len(breakpoints) == 0 {
