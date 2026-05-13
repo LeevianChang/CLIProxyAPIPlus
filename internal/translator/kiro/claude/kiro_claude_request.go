@@ -189,6 +189,7 @@ func BuildKiroPayload(claudeBody []byte, modelID, profileArn, origin string, isA
 
 	// Extract system prompt
 	systemPrompt := extractSystemPrompt(claudeBody)
+	systemPrompt = kirocommon.AppendChunkedToolSystemPolicy(systemPrompt)
 
 	// Check for thinking mode using the comprehensive IsThinkingEnabledWithHeaders function
 	// This supports Claude API format, OpenAI reasoning_effort, AMP/Cursor format, and Anthropic-Beta header
@@ -574,6 +575,7 @@ func convertClaudeToolsToKiro(tools gjson.Result) []KiroToolWrapper {
 			description = fmt.Sprintf("Tool: %s", name)
 			log.Debugf("kiro: tool '%s' has empty description, using default: %s", name, description)
 		}
+		description = kirocommon.AppendChunkedToolDescriptionPolicy(name, description)
 
 		// Rename web_search → remote_web_search for Kiro API compatibility
 		if name == "web_search" {

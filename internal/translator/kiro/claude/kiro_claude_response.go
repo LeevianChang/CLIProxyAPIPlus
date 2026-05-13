@@ -99,6 +99,9 @@ func BuildClaudeResponse(content string, toolUses []KiroToolUse, model string, u
 	if usageInfo.CachedTokens > 0 {
 		usagePayload["cache_read_input_tokens"] = usageInfo.CachedTokens
 	}
+	if usageInfo.CacheWriteTokens > 0 {
+		usagePayload["cache_creation_input_tokens"] = usageInfo.CacheWriteTokens
+	}
 
 	response := map[string]interface{}{
 		"id":          "msg_" + strings.ReplaceAll(uuid.New().String(), "-", "")[:24],

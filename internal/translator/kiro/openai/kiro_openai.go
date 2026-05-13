@@ -147,9 +147,11 @@ func ConvertKiroStreamToOpenAI(ctx context.Context, model string, originalReques
 			inputTokens := eventJSON.Get("usage.input_tokens").Int()
 			outputTokens := eventJSON.Get("usage.output_tokens").Int()
 			usageInfo := usage.Detail{
-				InputTokens:  inputTokens,
-				OutputTokens: outputTokens,
-				TotalTokens:  inputTokens + outputTokens,
+				InputTokens:      inputTokens,
+				OutputTokens:     outputTokens,
+				CachedTokens:     eventJSON.Get("usage.cache_read_input_tokens").Int(),
+				CacheWriteTokens: eventJSON.Get("usage.cache_creation_input_tokens").Int(),
+				TotalTokens:      inputTokens + outputTokens,
 			}
 			chunk := BuildOpenAISSEUsage(state, usageInfo)
 			results = append(results, []byte(chunk))
@@ -166,9 +168,11 @@ func ConvertKiroStreamToOpenAI(ctx context.Context, model string, originalReques
 			inputTokens := eventJSON.Get("usage.input_tokens").Int()
 			outputTokens := eventJSON.Get("usage.output_tokens").Int()
 			usageInfo := usage.Detail{
-				InputTokens:  inputTokens,
-				OutputTokens: outputTokens,
-				TotalTokens:  inputTokens + outputTokens,
+				InputTokens:      inputTokens,
+				OutputTokens:     outputTokens,
+				CachedTokens:     eventJSON.Get("usage.cache_read_input_tokens").Int(),
+				CacheWriteTokens: eventJSON.Get("usage.cache_creation_input_tokens").Int(),
+				TotalTokens:      inputTokens + outputTokens,
 			}
 			chunk := BuildOpenAISSEUsage(state, usageInfo)
 			results = append(results, []byte(chunk))
@@ -230,8 +234,10 @@ func ConvertKiroNonStreamToOpenAI(ctx context.Context, model string, originalReq
 
 	// Extract usage
 	usageInfo := usage.Detail{
-		InputTokens:  response.Get("usage.input_tokens").Int(),
-		OutputTokens: response.Get("usage.output_tokens").Int(),
+		InputTokens:      response.Get("usage.input_tokens").Int(),
+		OutputTokens:     response.Get("usage.output_tokens").Int(),
+		CachedTokens:     response.Get("usage.cache_read_input_tokens").Int(),
+		CacheWriteTokens: response.Get("usage.cache_creation_input_tokens").Int(),
 	}
 	usageInfo.TotalTokens = usageInfo.InputTokens + usageInfo.OutputTokens
 

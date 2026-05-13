@@ -80,6 +80,64 @@ var (
 	usageUpdateTimeInterval  = 15 * time.Second // Or every 15 seconds, whichever comes first
 )
 
+func kiroFloatField(data map[string]interface{}, keys ...string) (float64, bool) {
+	for _, key := range keys {
+		if value, ok := data[key].(float64); ok {
+			return value, true
+		}
+	}
+	return 0, false
+}
+
+func applyKiroCachedTokens(detail *usage.Detail, cacheReadTokens float64) {
+	if detail == nil || cacheReadTokens <= 0 {
+		return
+	}
+	detail.CachedTokens = int64(cacheReadTokens)
+	if detail.InputTokens > 0 {
+		detail.InputTokens += detail.CachedTokens
+	} else {
+		detail.InputTokens = detail.CachedTokens
+	}
+}
+
+func applyKiroCacheWriteTokens(detail *usage.Detail, cacheWriteTokens float64) {
+	if detail == nil || cacheWriteTokens <= 0 {
+		return
+	}
+	detail.CacheWriteTokens = int64(cacheWriteTokens)
+	if detail.InputTokens > 0 {
+		detail.InputTokens += detail.CacheWriteTokens
+	} else {
+		detail.InputTokens = detail.CacheWriteTokens
+	}
+}
+
+func applyKiroSimulatedCache(detail *usage.Detail, simulated kiroSimulatedCacheResult) {
+	if detail == nil || !simulated.Simulated || detail.CachedTokens > 0 || detail.CacheWriteTokens > 0 {
+		return
+	}
+	if simulated.UncachedTokens > 0 {
+		detail.InputTokens = simulated.UncachedTokens
+	}
+	detail.CachedTokens = simulated.ReadTokens
+	detail.CacheWriteTokens = simulated.CreationTokens
+	detail.TotalTokens = detail.InputTokens + detail.OutputTokens
+}
+
+func shouldLogKiroUsagePayload(eventType string, payload []byte) bool {
+	switch eventType {
+	case "messageMetadataEvent", "metadataEvent", "usageEvent", "usage", "metricsEvent", "meteringEvent", "contextUsageEvent":
+		return true
+	}
+	lower := strings.ToLower(string(payload))
+	return strings.Contains(lower, "tokenusage") || strings.Contains(lower, "cached") || strings.Contains(lower, "cache") || strings.Contains(lower, "usage")
+}
+
+func logKiroRawEventPayload(source, eventType string, payload []byte) {
+	log.Infof("kiro: %s raw usage-related event type=%s payload=%s", source, eventType, string(payload))
+}
+
 // endpointAliases maps user preference values to canonical endpoint names.
 var endpointAliases = map[string]string{
 	"codewhisperer": "codewhisperer",
@@ -1042,6 +1100,16 @@ func (e *KiroExecutor) executeWithRetry(ctx context.Context, auth *cliproxyauth.
 				}
 			}
 
+			cachePayload := opts.OriginalRequest
+			if from.String() == "kiro" {
+				cachePayload = body
+			}
+			cacheResult := simulateKiroPromptCache(getAccountKey(auth), payloadRequestedModel(opts, req.Model), from, cachePayload, usageInfo.InputTokens)
+			applyKiroSimulatedCache(&usageInfo, cacheResult)
+			if cacheResult.Simulated {
+				log.Infof("kiro: simulated prompt cache read=%d creation=%d uncached=%d model=%s simulated=true", cacheResult.ReadTokens, cacheResult.CreationTokens, cacheResult.UncachedTokens, payloadRequestedModel(opts, req.Model))
+			}
+
 			// 3. Update TotalTokens
 			usageInfo.TotalTokens = usageInfo.InputTokens + usageInfo.OutputTokens
 
@@ -1447,7 +1515,24 @@ func (e *KiroExecutor) executeStreamWithRetry(ctx context.Context, auth *cliprox
 			rateLimiter.MarkTokenSuccess(tokenKey)
 			log.Debugf("kiro: stream request successful, token %s marked as success", tokenKey)
 
-			go func(resp *http.Response, thinkingEnabled bool) {
+			totalInputTokens := int64(0)
+			if enc, err := getTokenizer(req.Model); err == nil {
+				if inp, err := countClaudeChatTokens(enc, body); err == nil && inp > 0 {
+					totalInputTokens = inp
+				} else if inp, err := countOpenAIChatTokens(enc, opts.OriginalRequest); err == nil && inp > 0 {
+					totalInputTokens = inp
+				}
+			}
+			cachePayload := opts.OriginalRequest
+			if from.String() == "kiro" {
+				cachePayload = body
+			}
+			simulatedCache := simulateKiroPromptCache(getAccountKey(auth), payloadRequestedModel(opts, req.Model), from, cachePayload, totalInputTokens)
+			if simulatedCache.Simulated {
+				log.Infof("kiro: simulated prompt cache read=%d creation=%d uncached=%d model=%s simulated=true", simulatedCache.ReadTokens, simulatedCache.CreationTokens, simulatedCache.UncachedTokens, payloadRequestedModel(opts, req.Model))
+			}
+
+			go func(resp *http.Response, thinkingEnabled bool, simulatedCache kiroSimulatedCacheResult) {
 				defer close(out)
 				defer func() {
 					if r := recover(); r != nil {
@@ -1465,8 +1550,8 @@ func (e *KiroExecutor) executeStreamWithRetry(ctx context.Context, auth *cliprox
 				// So we always enable thinking parsing for Kiro responses
 				log.Debugf("kiro: stream thinkingEnabled = %v (always true for Kiro)", thinkingEnabled)
 
-				e.streamToChannel(ctx, resp.Body, out, from, payloadRequestedModel(opts, req.Model), opts.OriginalRequest, body, reporter, thinkingEnabled)
-			}(httpResp, thinkingEnabled)
+				e.streamToChannel(ctx, resp.Body, out, from, payloadRequestedModel(opts, req.Model), opts.OriginalRequest, body, reporter, thinkingEnabled, simulatedCache)
+			}(httpResp, thinkingEnabled, simulatedCache)
 
 			return out, nil
 		}
@@ -1860,6 +1945,9 @@ func (e *KiroExecutor) parseEventStream(body io.Reader) (string, []kiroclaude.Ki
 			log.Debugf("kiro: skipping malformed event: %v", err)
 			continue
 		}
+		if shouldLogKiroUsagePayload(eventType, payload) {
+			logKiroRawEventPayload("parseEventStream", eventType, payload)
+		}
 
 		// Check for error/exception events in the payload (Kiro API may return errors with HTTP 200)
 		// These can appear as top-level fields or nested within the event
@@ -2010,29 +2098,23 @@ func (e *KiroExecutor) parseEventStream(body io.Reader) (string, []kiroclaude.Ki
 			// Check for nested tokenUsage object (official format)
 			if tokenUsage, ok := metadata["tokenUsage"].(map[string]interface{}); ok {
 				// outputTokens - precise output token count
-				if outputTokens, ok := tokenUsage["outputTokens"].(float64); ok {
+				if outputTokens, ok := kiroFloatField(tokenUsage, "outputTokens", "output_tokens"); ok {
 					usageInfo.OutputTokens = int64(outputTokens)
 					log.Infof("kiro: parseEventStream found precise outputTokens in tokenUsage: %d", usageInfo.OutputTokens)
 				}
 				// totalTokens - precise total token count
-				if totalTokens, ok := tokenUsage["totalTokens"].(float64); ok {
+				if totalTokens, ok := kiroFloatField(tokenUsage, "totalTokens", "total_tokens"); ok {
 					usageInfo.TotalTokens = int64(totalTokens)
 					log.Infof("kiro: parseEventStream found precise totalTokens in tokenUsage: %d", usageInfo.TotalTokens)
 				}
 				// uncachedInputTokens - input tokens not from cache
-				if uncachedInputTokens, ok := tokenUsage["uncachedInputTokens"].(float64); ok {
+				if uncachedInputTokens, ok := kiroFloatField(tokenUsage, "uncachedInputTokens", "uncached_input_tokens", "inputTokens", "input_tokens", "prompt_tokens"); ok {
 					usageInfo.InputTokens = int64(uncachedInputTokens)
 					log.Infof("kiro: parseEventStream found uncachedInputTokens in tokenUsage: %d", usageInfo.InputTokens)
 				}
 				// cacheReadInputTokens - tokens read from cache
-				if cacheReadTokens, ok := tokenUsage["cacheReadInputTokens"].(float64); ok {
-					usageInfo.CachedTokens = int64(cacheReadTokens)
-					// Add to input tokens if we have uncached tokens, otherwise use as input
-					if usageInfo.InputTokens > 0 {
-						usageInfo.InputTokens += usageInfo.CachedTokens
-					} else {
-						usageInfo.InputTokens = usageInfo.CachedTokens
-					}
+				if cacheReadTokens, ok := kiroFloatField(tokenUsage, "cacheReadInputTokens", "cache_read_input_tokens", "cachedTokens", "cached_tokens"); ok {
+					applyKiroCachedTokens(&usageInfo, cacheReadTokens)
 					log.Debugf("kiro: parseEventStream found cacheReadInputTokens in tokenUsage: %d", usageInfo.CachedTokens)
 				}
 				// contextUsagePercentage - can be used as fallback for input token estimation
@@ -2064,32 +2146,35 @@ func (e *KiroExecutor) parseEventStream(body io.Reader) (string, []kiroclaude.Ki
 
 		case "usageEvent", "usage":
 			// Handle dedicated usage events
-			if inputTokens, ok := event["inputTokens"].(float64); ok {
+			if inputTokens, ok := kiroFloatField(event, "inputTokens", "input_tokens", "prompt_tokens"); ok {
 				usageInfo.InputTokens = int64(inputTokens)
 				log.Debugf("kiro: parseEventStream found inputTokens in usageEvent: %d", usageInfo.InputTokens)
 			}
-			if outputTokens, ok := event["outputTokens"].(float64); ok {
+			if outputTokens, ok := kiroFloatField(event, "outputTokens", "output_tokens", "completion_tokens"); ok {
 				usageInfo.OutputTokens = int64(outputTokens)
 				log.Debugf("kiro: parseEventStream found outputTokens in usageEvent: %d", usageInfo.OutputTokens)
 			}
-			if totalTokens, ok := event["totalTokens"].(float64); ok {
+			if totalTokens, ok := kiroFloatField(event, "totalTokens", "total_tokens"); ok {
 				usageInfo.TotalTokens = int64(totalTokens)
 				log.Debugf("kiro: parseEventStream found totalTokens in usageEvent: %d", usageInfo.TotalTokens)
 			}
+			if cacheReadTokens, ok := kiroFloatField(event, "cacheReadInputTokens", "cache_read_input_tokens", "cachedTokens", "cached_tokens"); ok {
+				applyKiroCachedTokens(&usageInfo, cacheReadTokens)
+				log.Debugf("kiro: parseEventStream found cacheReadInputTokens in usageEvent: %d", usageInfo.CachedTokens)
+			}
 			// Also check nested usage object
 			if usageObj, ok := event["usage"].(map[string]interface{}); ok {
-				if inputTokens, ok := usageObj["input_tokens"].(float64); ok {
-					usageInfo.InputTokens = int64(inputTokens)
-				} else if inputTokens, ok := usageObj["prompt_tokens"].(float64); ok {
+				if inputTokens, ok := kiroFloatField(usageObj, "inputTokens", "input_tokens", "prompt_tokens"); ok {
 					usageInfo.InputTokens = int64(inputTokens)
 				}
-				if outputTokens, ok := usageObj["output_tokens"].(float64); ok {
-					usageInfo.OutputTokens = int64(outputTokens)
-				} else if outputTokens, ok := usageObj["completion_tokens"].(float64); ok {
+				if outputTokens, ok := kiroFloatField(usageObj, "outputTokens", "output_tokens", "completion_tokens"); ok {
 					usageInfo.OutputTokens = int64(outputTokens)
 				}
-				if totalTokens, ok := usageObj["total_tokens"].(float64); ok {
+				if totalTokens, ok := kiroFloatField(usageObj, "totalTokens", "total_tokens"); ok {
 					usageInfo.TotalTokens = int64(totalTokens)
+				}
+				if cacheReadTokens, ok := kiroFloatField(usageObj, "cacheReadInputTokens", "cache_read_input_tokens", "cachedTokens", "cached_tokens"); ok {
+					applyKiroCachedTokens(&usageInfo, cacheReadTokens)
 				}
 				log.Debugf("kiro: parseEventStream found usage object: input=%d, output=%d, total=%d",
 					usageInfo.InputTokens, usageInfo.OutputTokens, usageInfo.TotalTokens)
@@ -2208,15 +2293,21 @@ func (e *KiroExecutor) parseEventStream(body io.Reader) (string, []kiroclaude.Ki
 
 		// Check for direct token fields in any event (fallback)
 		if usageInfo.InputTokens == 0 {
-			if inputTokens, ok := event["inputTokens"].(float64); ok {
+			if inputTokens, ok := kiroFloatField(event, "inputTokens", "input_tokens", "prompt_tokens"); ok {
 				usageInfo.InputTokens = int64(inputTokens)
 				log.Debugf("kiro: parseEventStream found direct inputTokens: %d", usageInfo.InputTokens)
 			}
 		}
 		if usageInfo.OutputTokens == 0 {
-			if outputTokens, ok := event["outputTokens"].(float64); ok {
+			if outputTokens, ok := kiroFloatField(event, "outputTokens", "output_tokens", "completion_tokens"); ok {
 				usageInfo.OutputTokens = int64(outputTokens)
 				log.Debugf("kiro: parseEventStream found direct outputTokens: %d", usageInfo.OutputTokens)
+			}
+		}
+		if usageInfo.CachedTokens == 0 {
+			if cacheReadTokens, ok := kiroFloatField(event, "cacheReadInputTokens", "cache_read_input_tokens", "cachedTokens", "cached_tokens"); ok {
+				applyKiroCachedTokens(&usageInfo, cacheReadTokens)
+				log.Debugf("kiro: parseEventStream found direct cacheReadInputTokens: %d", usageInfo.CachedTokens)
 			}
 		}
 
@@ -2224,22 +2315,23 @@ func (e *KiroExecutor) parseEventStream(body io.Reader) (string, []kiroclaude.Ki
 		if usageInfo.InputTokens == 0 || usageInfo.OutputTokens == 0 {
 			if usageObj, ok := event["usage"].(map[string]interface{}); ok {
 				if usageInfo.InputTokens == 0 {
-					if inputTokens, ok := usageObj["input_tokens"].(float64); ok {
-						usageInfo.InputTokens = int64(inputTokens)
-					} else if inputTokens, ok := usageObj["prompt_tokens"].(float64); ok {
+					if inputTokens, ok := kiroFloatField(usageObj, "inputTokens", "input_tokens", "prompt_tokens"); ok {
 						usageInfo.InputTokens = int64(inputTokens)
 					}
 				}
 				if usageInfo.OutputTokens == 0 {
-					if outputTokens, ok := usageObj["output_tokens"].(float64); ok {
-						usageInfo.OutputTokens = int64(outputTokens)
-					} else if outputTokens, ok := usageObj["completion_tokens"].(float64); ok {
+					if outputTokens, ok := kiroFloatField(usageObj, "outputTokens", "output_tokens", "completion_tokens"); ok {
 						usageInfo.OutputTokens = int64(outputTokens)
 					}
 				}
 				if usageInfo.TotalTokens == 0 {
-					if totalTokens, ok := usageObj["total_tokens"].(float64); ok {
+					if totalTokens, ok := kiroFloatField(usageObj, "totalTokens", "total_tokens"); ok {
 						usageInfo.TotalTokens = int64(totalTokens)
+					}
+				}
+				if usageInfo.CachedTokens == 0 {
+					if cacheReadTokens, ok := kiroFloatField(usageObj, "cacheReadInputTokens", "cache_read_input_tokens", "cachedTokens", "cached_tokens"); ok {
+						applyKiroCachedTokens(&usageInfo, cacheReadTokens)
 					}
 				}
 				log.Debugf("kiro: parseEventStream found usage object (fallback): input=%d, output=%d, total=%d",
@@ -2497,7 +2589,7 @@ func (e *KiroExecutor) extractEventTypeFromBytes(headers []byte) string {
 // Implements duplicate content filtering using lastContentEvent detection (based on AIClient-2-API).
 // Extracts stop_reason from upstream events when available.
 // thinkingEnabled controls whether <thinking> tags are parsed - only parse when request enabled thinking.
-func (e *KiroExecutor) streamToChannel(ctx context.Context, body io.Reader, out chan<- cliproxyexecutor.StreamChunk, targetFormat sdktranslator.Format, model string, originalReq, claudeBody []byte, reporter *usageReporter, thinkingEnabled bool) {
+func (e *KiroExecutor) streamToChannel(ctx context.Context, body io.Reader, out chan<- cliproxyexecutor.StreamChunk, targetFormat sdktranslator.Format, model string, originalReq, claudeBody []byte, reporter *usageReporter, thinkingEnabled bool, simulatedCache kiroSimulatedCacheResult) {
 	reader := bufio.NewReaderSize(body, 20*1024*1024) // 20MB buffer to match other providers
 	var totalUsage usage.Detail
 	var hasToolUses bool          // Track if any tool uses were emitted
@@ -2566,6 +2658,10 @@ func (e *KiroExecutor) streamToChannel(ctx context.Context, body io.Reader, out 
 		}
 
 		totalUsage.InputTokens = inputTokens
+		if simulatedCache.UncachedTokens > 0 {
+			totalUsage.InputTokens = simulatedCache.UncachedTokens
+		}
+		applyKiroSimulatedCache(&totalUsage, simulatedCache)
 		log.Debugf("kiro: streamToChannel pre-calculated input tokens: %d (method: %s, claude body: %d bytes, original req: %d bytes)",
 			totalUsage.InputTokens, countMethod, len(claudeBody), len(originalReq))
 	}
@@ -2656,6 +2752,9 @@ func (e *KiroExecutor) streamToChannel(ctx context.Context, body io.Reader, out 
 		if err := json.Unmarshal(payload, &event); err != nil {
 			log.Warnf("kiro: failed to unmarshal event payload: %v, raw: %s", err, string(payload))
 			continue
+		}
+		if shouldLogKiroUsagePayload(eventType, payload) {
+			logKiroRawEventPayload("streamToChannel", eventType, payload)
 		}
 
 		// Check for error/exception events in the payload (Kiro API may return errors with HTTP 200)
@@ -3347,31 +3446,25 @@ func (e *KiroExecutor) streamToChannel(ctx context.Context, body io.Reader, out 
 			// Check for nested tokenUsage object (official format)
 			if tokenUsage, ok := metadata["tokenUsage"].(map[string]interface{}); ok {
 				// outputTokens - precise output token count
-				if outputTokens, ok := tokenUsage["outputTokens"].(float64); ok {
+				if outputTokens, ok := kiroFloatField(tokenUsage, "outputTokens", "output_tokens"); ok {
 					totalUsage.OutputTokens = int64(outputTokens)
 					hasUpstreamUsage = true
 					log.Infof("kiro: streamToChannel found precise outputTokens in tokenUsage: %d", totalUsage.OutputTokens)
 				}
 				// totalTokens - precise total token count
-				if totalTokens, ok := tokenUsage["totalTokens"].(float64); ok {
+				if totalTokens, ok := kiroFloatField(tokenUsage, "totalTokens", "total_tokens"); ok {
 					totalUsage.TotalTokens = int64(totalTokens)
 					log.Infof("kiro: streamToChannel found precise totalTokens in tokenUsage: %d", totalUsage.TotalTokens)
 				}
 				// uncachedInputTokens - input tokens not from cache
-				if uncachedInputTokens, ok := tokenUsage["uncachedInputTokens"].(float64); ok {
+				if uncachedInputTokens, ok := kiroFloatField(tokenUsage, "uncachedInputTokens", "uncached_input_tokens", "inputTokens", "input_tokens", "prompt_tokens"); ok {
 					totalUsage.InputTokens = int64(uncachedInputTokens)
 					hasUpstreamUsage = true
 					log.Infof("kiro: streamToChannel found uncachedInputTokens in tokenUsage: %d", totalUsage.InputTokens)
 				}
 				// cacheReadInputTokens - tokens read from cache
-				if cacheReadTokens, ok := tokenUsage["cacheReadInputTokens"].(float64); ok {
-					totalUsage.CachedTokens = int64(cacheReadTokens)
-					// Add to input tokens if we have uncached tokens, otherwise use as input
-					if totalUsage.InputTokens > 0 {
-						totalUsage.InputTokens += totalUsage.CachedTokens
-					} else {
-						totalUsage.InputTokens = totalUsage.CachedTokens
-					}
+				if cacheReadTokens, ok := kiroFloatField(tokenUsage, "cacheReadInputTokens", "cache_read_input_tokens", "cachedTokens", "cached_tokens"); ok {
+					applyKiroCachedTokens(&totalUsage, cacheReadTokens)
 					hasUpstreamUsage = true
 					log.Debugf("kiro: streamToChannel found cacheReadInputTokens in tokenUsage: %d", totalUsage.CachedTokens)
 				}
@@ -3406,32 +3499,35 @@ func (e *KiroExecutor) streamToChannel(ctx context.Context, body io.Reader, out 
 
 		case "usageEvent", "usage":
 			// Handle dedicated usage events
-			if inputTokens, ok := event["inputTokens"].(float64); ok {
+			if inputTokens, ok := kiroFloatField(event, "inputTokens", "input_tokens", "prompt_tokens"); ok {
 				totalUsage.InputTokens = int64(inputTokens)
 				log.Debugf("kiro: streamToChannel found inputTokens in usageEvent: %d", totalUsage.InputTokens)
 			}
-			if outputTokens, ok := event["outputTokens"].(float64); ok {
+			if outputTokens, ok := kiroFloatField(event, "outputTokens", "output_tokens", "completion_tokens"); ok {
 				totalUsage.OutputTokens = int64(outputTokens)
 				log.Debugf("kiro: streamToChannel found outputTokens in usageEvent: %d", totalUsage.OutputTokens)
 			}
-			if totalTokens, ok := event["totalTokens"].(float64); ok {
+			if totalTokens, ok := kiroFloatField(event, "totalTokens", "total_tokens"); ok {
 				totalUsage.TotalTokens = int64(totalTokens)
 				log.Debugf("kiro: streamToChannel found totalTokens in usageEvent: %d", totalUsage.TotalTokens)
 			}
+			if cacheReadTokens, ok := kiroFloatField(event, "cacheReadInputTokens", "cache_read_input_tokens", "cachedTokens", "cached_tokens"); ok {
+				applyKiroCachedTokens(&totalUsage, cacheReadTokens)
+				log.Debugf("kiro: streamToChannel found cacheReadInputTokens in usageEvent: %d", totalUsage.CachedTokens)
+			}
 			// Also check nested usage object
 			if usageObj, ok := event["usage"].(map[string]interface{}); ok {
-				if inputTokens, ok := usageObj["input_tokens"].(float64); ok {
-					totalUsage.InputTokens = int64(inputTokens)
-				} else if inputTokens, ok := usageObj["prompt_tokens"].(float64); ok {
+				if inputTokens, ok := kiroFloatField(usageObj, "inputTokens", "input_tokens", "prompt_tokens"); ok {
 					totalUsage.InputTokens = int64(inputTokens)
 				}
-				if outputTokens, ok := usageObj["output_tokens"].(float64); ok {
-					totalUsage.OutputTokens = int64(outputTokens)
-				} else if outputTokens, ok := usageObj["completion_tokens"].(float64); ok {
+				if outputTokens, ok := kiroFloatField(usageObj, "outputTokens", "output_tokens", "completion_tokens"); ok {
 					totalUsage.OutputTokens = int64(outputTokens)
 				}
-				if totalTokens, ok := usageObj["total_tokens"].(float64); ok {
+				if totalTokens, ok := kiroFloatField(usageObj, "totalTokens", "total_tokens"); ok {
 					totalUsage.TotalTokens = int64(totalTokens)
+				}
+				if cacheReadTokens, ok := kiroFloatField(usageObj, "cacheReadInputTokens", "cache_read_input_tokens", "cachedTokens", "cached_tokens"); ok {
+					applyKiroCachedTokens(&totalUsage, cacheReadTokens)
 				}
 				log.Debugf("kiro: streamToChannel found usage object: input=%d, output=%d, total=%d",
 					totalUsage.InputTokens, totalUsage.OutputTokens, totalUsage.TotalTokens)
@@ -3463,15 +3559,21 @@ func (e *KiroExecutor) streamToChannel(ctx context.Context, body io.Reader, out 
 
 		// Check for direct token fields in any event (fallback)
 		if totalUsage.InputTokens == 0 {
-			if inputTokens, ok := event["inputTokens"].(float64); ok {
+			if inputTokens, ok := kiroFloatField(event, "inputTokens", "input_tokens", "prompt_tokens"); ok {
 				totalUsage.InputTokens = int64(inputTokens)
 				log.Debugf("kiro: streamToChannel found direct inputTokens: %d", totalUsage.InputTokens)
 			}
 		}
 		if totalUsage.OutputTokens == 0 {
-			if outputTokens, ok := event["outputTokens"].(float64); ok {
+			if outputTokens, ok := kiroFloatField(event, "outputTokens", "output_tokens", "completion_tokens"); ok {
 				totalUsage.OutputTokens = int64(outputTokens)
 				log.Debugf("kiro: streamToChannel found direct outputTokens: %d", totalUsage.OutputTokens)
+			}
+		}
+		if totalUsage.CachedTokens == 0 {
+			if cacheReadTokens, ok := kiroFloatField(event, "cacheReadInputTokens", "cache_read_input_tokens", "cachedTokens", "cached_tokens"); ok {
+				applyKiroCachedTokens(&totalUsage, cacheReadTokens)
+				log.Debugf("kiro: streamToChannel found direct cacheReadInputTokens: %d", totalUsage.CachedTokens)
 			}
 		}
 
@@ -3479,22 +3581,23 @@ func (e *KiroExecutor) streamToChannel(ctx context.Context, body io.Reader, out 
 		if totalUsage.InputTokens == 0 || totalUsage.OutputTokens == 0 {
 			if usageObj, ok := event["usage"].(map[string]interface{}); ok {
 				if totalUsage.InputTokens == 0 {
-					if inputTokens, ok := usageObj["input_tokens"].(float64); ok {
-						totalUsage.InputTokens = int64(inputTokens)
-					} else if inputTokens, ok := usageObj["prompt_tokens"].(float64); ok {
+					if inputTokens, ok := kiroFloatField(usageObj, "inputTokens", "input_tokens", "prompt_tokens"); ok {
 						totalUsage.InputTokens = int64(inputTokens)
 					}
 				}
 				if totalUsage.OutputTokens == 0 {
-					if outputTokens, ok := usageObj["output_tokens"].(float64); ok {
-						totalUsage.OutputTokens = int64(outputTokens)
-					} else if outputTokens, ok := usageObj["completion_tokens"].(float64); ok {
+					if outputTokens, ok := kiroFloatField(usageObj, "outputTokens", "output_tokens", "completion_tokens"); ok {
 						totalUsage.OutputTokens = int64(outputTokens)
 					}
 				}
 				if totalUsage.TotalTokens == 0 {
-					if totalTokens, ok := usageObj["total_tokens"].(float64); ok {
+					if totalTokens, ok := kiroFloatField(usageObj, "totalTokens", "total_tokens"); ok {
 						totalUsage.TotalTokens = int64(totalTokens)
+					}
+				}
+				if totalUsage.CachedTokens == 0 {
+					if cacheReadTokens, ok := kiroFloatField(usageObj, "cacheReadInputTokens", "cache_read_input_tokens", "cachedTokens", "cached_tokens"); ok {
+						applyKiroCachedTokens(&totalUsage, cacheReadTokens)
 					}
 				}
 				log.Debugf("kiro: streamToChannel found usage object (fallback): input=%d, output=%d, total=%d",
@@ -3548,7 +3651,7 @@ func (e *KiroExecutor) streamToChannel(ctx context.Context, body io.Reader, out 
 	// Kiro model has 200k max context, contextUsagePercentage represents the percentage used
 	// Formula: input_tokens = contextUsagePercentage * 200000 / 100
 	// Note: The effective input context is ~170k (200k - 30k reserved for output)
-	if upstreamContextPercentage > 0 {
+	if upstreamContextPercentage > 0 && !simulatedCache.Simulated {
 		// Calculate input tokens from context percentage
 		// Using 200k as the base since that's what Kiro reports against
 		calculatedInputTokens := int64(upstreamContextPercentage * 200000 / 100)
@@ -3561,7 +3664,10 @@ func (e *KiroExecutor) streamToChannel(ctx context.Context, body io.Reader, out 
 			log.Debugf("kiro: using contextUsagePercentage (%.2f%%) to calculate input tokens: %d (local estimate was: %d)",
 				upstreamContextPercentage, calculatedInputTokens, localEstimate)
 		}
+	} else if upstreamContextPercentage > 0 {
+		log.Debugf("kiro: skipping contextUsagePercentage input override because simulated prompt cache is active (context=%.2f%%)", upstreamContextPercentage)
 	}
+	applyKiroSimulatedCache(&totalUsage, simulatedCache)
 
 	totalUsage.TotalTokens = totalUsage.InputTokens + totalUsage.OutputTokens
 

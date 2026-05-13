@@ -253,17 +253,24 @@ func BuildOpenAIStreamFinishChunk(model string, finishReason string) []byte {
 
 // BuildOpenAIStreamUsageChunk creates a chunk with usage information (optional, for stream_options.include_usage)
 func BuildOpenAIStreamUsageChunk(model string, usageInfo usage.Detail) []byte {
+	usagePayload := map[string]interface{}{
+		"prompt_tokens":     usageInfo.InputTokens,
+		"completion_tokens": usageInfo.OutputTokens,
+		"total_tokens":      usageInfo.InputTokens + usageInfo.OutputTokens,
+	}
+	if usageInfo.CachedTokens > 0 {
+		usagePayload["prompt_tokens_details"] = map[string]interface{}{
+			"cached_tokens": usageInfo.CachedTokens,
+		}
+	}
+
 	chunk := map[string]interface{}{
 		"id":      "chatcmpl-" + uuid.New().String()[:12],
 		"object":  "chat.completion.chunk",
 		"created": time.Now().Unix(),
 		"model":   model,
 		"choices": []map[string]interface{}{},
-		"usage": map[string]interface{}{
-			"prompt_tokens":     usageInfo.InputTokens,
-			"completion_tokens": usageInfo.OutputTokens,
-			"total_tokens":      usageInfo.InputTokens + usageInfo.OutputTokens,
-		},
+		"usage":   usagePayload,
 	}
 
 	result, _ := json.Marshal(chunk)

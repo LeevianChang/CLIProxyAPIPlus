@@ -910,14 +910,35 @@ func (h *Handler) GetKiroAuthFileUsage(c *gin.Context) {
 		return
 	}
 
-	if refreshed, errRefresh := h.refreshKiroStorageIfNeeded(c.Request.Context(), filePath, storage, rawMetadata); errRefresh != nil {
+	if refreshed, errRefresh := h.refreshKiroStorageIfNeeded(c.Request.Context(), filePath, storage, rawMetadata, false); errRefresh != nil {
 		log.WithError(errRefresh).Warnf("failed to refresh Kiro token before usage check: %s", name)
 	} else if refreshed != nil {
 		storage = refreshed
 	}
 
-	usage, err := kiroauth.NewUsageChecker(h.cfg).CheckUsage(c.Request.Context(), storage.ToTokenData())
+	usageChecker := kiroauth.NewUsageChecker(h.cfg)
+	usage, err := usageChecker.CheckUsage(c.Request.Context(), storage.ToTokenData())
+	if err != nil && isKiroTokenRelatedUsageError(err) {
+		log.WithError(err).Warnf("Kiro usage check failed with token-related error, refreshing token and retrying: %s", name)
+		if refreshed, errRefresh := h.refreshKiroStorageIfNeeded(c.Request.Context(), filePath, storage, rawMetadata, true); errRefresh != nil {
+			log.WithError(errRefresh).Warnf("failed to refresh Kiro token after usage check error: %s", name)
+		} else if refreshed != nil {
+			storage = refreshed
+			usage, err = usageChecker.CheckUsage(c.Request.Context(), storage.ToTokenData())
+		}
+	}
 	if err != nil {
+		if currentUsage, usageLimit, nextReset, ok := cachedKiroUsageFromMetadata(rawMetadata); ok {
+			log.WithError(err).Warnf("failed to fetch Kiro usage, returning cached usage for auth file: %s", name)
+			c.JSON(http.StatusOK, gin.H{
+				"current_usage": currentUsage,
+				"usage_limit":   usageLimit,
+				"next_reset":    nextReset,
+				"cached":        true,
+			})
+			return
+		}
+		log.WithError(err).Warnf("failed to fetch Kiro usage for auth file: %s", name)
 		c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("failed to fetch Kiro usage: %v", err)})
 		return
 	}
@@ -934,6 +955,17 @@ func (h *Handler) GetKiroAuthFileUsage(c *gin.Context) {
 		"usage_limit":   usageLimit,
 		"next_reset":    nextReset,
 	})
+}
+
+func isKiroTokenRelatedUsageError(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "token") ||
+		strings.Contains(message, "expired") ||
+		strings.Contains(message, "invalid") ||
+		strings.Contains(message, "unauthorized")
 }
 
 func saveKiroUsageMetadata(filePath string, metadata map[string]any, usage *kiroauth.UsageQuotaResponse, currentUsage, usageLimit, nextReset float64) error {
@@ -1069,12 +1101,12 @@ func saveCursorUsageMetadata(filePath string, metadata map[string]any, usage *cu
 	return os.WriteFile(filePath, append(updated, '\n'), 0o600)
 }
 
-func (h *Handler) refreshKiroStorageIfNeeded(ctx context.Context, filePath string, storage *kiroauth.KiroTokenStorage, rawMetadata map[string]any) (*kiroauth.KiroTokenStorage, error) {
+func (h *Handler) refreshKiroStorageIfNeeded(ctx context.Context, filePath string, storage *kiroauth.KiroTokenStorage, rawMetadata map[string]any, force bool) (*kiroauth.KiroTokenStorage, error) {
 	if storage == nil || strings.TrimSpace(storage.RefreshToken) == "" {
 		return nil, nil
 	}
 	expiresAt := kiroauth.ParseExpiresAt(storage.ExpiresAt)
-	if !expiresAt.IsZero() && !kiroauth.IsTokenExpiringSoon(expiresAt, 5*time.Minute) {
+	if !force && !expiresAt.IsZero() && !kiroauth.IsTokenExpiringSoon(expiresAt, 5*time.Minute) {
 		return nil, nil
 	}
 

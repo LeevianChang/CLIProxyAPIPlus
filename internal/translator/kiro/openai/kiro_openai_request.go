@@ -184,6 +184,7 @@ func BuildKiroPayloadFromOpenAI(openaiBody []byte, modelID, profileArn, origin s
 
 	// Extract system prompt from messages
 	systemPrompt := extractSystemPromptFromOpenAI(messages)
+	systemPrompt = kirocommon.AppendChunkedToolSystemPolicy(systemPrompt)
 
 	// Inject timestamp context
 	timestamp := time.Now().Format("2006-01-02 15:04:05 MST")
@@ -517,6 +518,7 @@ func convertOpenAIToolsToKiro(tools gjson.Result) []KiroToolWrapper {
 			description = fmt.Sprintf("Tool: %s", name)
 			log.Debugf("kiro-openai: tool '%s' has empty description, using default: %s", name, description)
 		}
+		description = kirocommon.AppendChunkedToolDescriptionPolicy(name, description)
 
 		// Truncate long descriptions
 		if len(description) > kirocommon.KiroMaxToolDescLen {

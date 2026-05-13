@@ -118,6 +118,9 @@ func BuildClaudeMessageDeltaEvent(stopReason string, usageInfo usage.Detail) []b
 	if usageInfo.CachedTokens > 0 {
 		usagePayload["cache_read_input_tokens"] = usageInfo.CachedTokens
 	}
+	if usageInfo.CacheWriteTokens > 0 {
+		usagePayload["cache_creation_input_tokens"] = usageInfo.CacheWriteTokens
+	}
 
 	deltaEvent := map[string]interface{}{
 		"type": "message_delta",

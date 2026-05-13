@@ -20,6 +20,18 @@ func TestBuildClaudeResponseIncludesCacheReadInputTokens(t *testing.T) {
 	}
 }
 
+func TestBuildClaudeResponseIncludesCacheCreationInputTokens(t *testing.T) {
+	out := BuildClaudeResponse("ok", nil, "kiro-test", usage.Detail{
+		InputTokens:      12,
+		OutputTokens:     3,
+		CacheWriteTokens: 5,
+	}, "end_turn")
+
+	if got := gjson.GetBytes(out, "usage.cache_creation_input_tokens").Int(); got != 5 {
+		t.Fatalf("cache_creation_input_tokens = %d, want 5; output=%s", got, string(out))
+	}
+}
+
 func TestBuildClaudeMessageDeltaEventIncludesCacheReadInputTokens(t *testing.T) {
 	out := string(BuildClaudeMessageDeltaEvent("end_turn", usage.Detail{
 		InputTokens:  12,
@@ -30,5 +42,17 @@ func TestBuildClaudeMessageDeltaEventIncludesCacheReadInputTokens(t *testing.T) 
 
 	if got := gjson.Get(data, "usage.cache_read_input_tokens").Int(); got != 7 {
 		t.Fatalf("cache_read_input_tokens = %d, want 7; output=%s", got, out)
+	}
+}
+
+func TestBuildClaudeMessageDeltaEventIncludesCacheCreationInputTokens(t *testing.T) {
+	out := string(BuildClaudeMessageDeltaEvent("end_turn", usage.Detail{
+		InputTokens:      10,
+		OutputTokens:     2,
+		CacheWriteTokens: 5,
+	}))
+	data := strings.TrimPrefix(out, "event: message_delta\ndata: ")
+	if got := gjson.Get(data, "usage.cache_creation_input_tokens").Int(); got != 5 {
+		t.Fatalf("cache_creation_input_tokens = %d, want 5; output=%s", got, out)
 	}
 }

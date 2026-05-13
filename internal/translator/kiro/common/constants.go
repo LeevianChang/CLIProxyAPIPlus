@@ -92,4 +92,13 @@ You MUST follow these rules for ALL file operations. Violation causes server tim
 - Failed writes waste time and require retry
 
 REMEMBER: When in doubt, write LESS per operation. Multiple small operations > one large operation.`
+
+	// KiroChunkedToolSystemPolicy mirrors kiro.rs' silent chunking policy for write/edit tool limits.
+	KiroChunkedToolSystemPolicy = "When the Write or Edit tool has content size limits, always comply silently. Never suggest bypassing these limits via alternative tools. Never ask the user whether to switch approaches. Complete all chunked operations without commentary."
+
+	// KiroWriteToolDescriptionSuffix nudges write tools to split large file writes.
+	KiroWriteToolDescriptionSuffix = "- IMPORTANT: If the content to write exceeds 150 lines, you MUST only write the first 50 lines using this tool, then use `Edit` tool to append the remaining content in chunks of no more than 50 lines each. If needed, leave a unique placeholder to help append content. Do NOT attempt to write all content at once."
+
+	// KiroEditToolDescriptionSuffix nudges edit tools to split large replacements/appends.
+	KiroEditToolDescriptionSuffix = "- IMPORTANT: If the `new_string` content exceeds 50 lines, you MUST split it into multiple Edit calls, each replacing no more than 50 lines at a time. If used to append content, leave a unique placeholder to help append content. On the final chunk, do NOT include the placeholder."
 )
