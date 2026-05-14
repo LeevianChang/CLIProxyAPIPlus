@@ -79,6 +79,7 @@ func ConvertKiroStreamToOpenAI(ctx context.Context, model string, originalReques
 	}
 
 	var results [][]byte
+	includeUsage := openAIStreamIncludeUsage(originalRequest)
 
 	switch eventType {
 	case "message_start":
@@ -115,7 +116,7 @@ func ConvertKiroStreamToOpenAI(ctx context.Context, model string, originalReques
 		case "thinking_delta":
 			// Convert thinking to reasoning_content for o1-style compatibility
 			thinkingDelta := eventJSON.Get("delta.thinking").String()
-			if thinkingDelta != "" {
+			if openAIIncludeReasoning(originalRequest) && thinkingDelta != "" {
 				chunk := BuildOpenAISSEReasoningDelta(state, thinkingDelta)
 				results = append(results, []byte(chunk))
 			}
@@ -143,7 +144,7 @@ func ConvertKiroStreamToOpenAI(ctx context.Context, model string, originalReques
 		}
 
 		// Extract usage if present
-		if eventJSON.Get("usage").Exists() {
+		if includeUsage && eventJSON.Get("usage").Exists() {
 			inputTokens := eventJSON.Get("usage.input_tokens").Int()
 			outputTokens := eventJSON.Get("usage.output_tokens").Int()
 			usageInfo := usage.Detail{
@@ -163,23 +164,18 @@ func ConvertKiroStreamToOpenAI(ctx context.Context, model string, originalReques
 		// Emitting [DONE] here would cause duplicate [DONE] markers
 
 	case "ping":
-		// Ping event with usage - optionally emit usage chunk
-		if eventJSON.Get("usage").Exists() {
-			inputTokens := eventJSON.Get("usage.input_tokens").Int()
-			outputTokens := eventJSON.Get("usage.output_tokens").Int()
-			usageInfo := usage.Detail{
-				InputTokens:      inputTokens,
-				OutputTokens:     outputTokens,
-				CachedTokens:     eventJSON.Get("usage.cache_read_input_tokens").Int(),
-				CacheWriteTokens: eventJSON.Get("usage.cache_creation_input_tokens").Int(),
-				TotalTokens:      inputTokens + outputTokens,
-			}
-			chunk := BuildOpenAISSEUsage(state, usageInfo)
-			results = append(results, []byte(chunk))
-		}
+		// Kiro may emit ping usage updates during generation, but OpenAI usage-only
+		// chunks are only valid as the final usage block before [DONE].
 	}
 
 	return results
+}
+
+func openAIStreamIncludeUsage(originalRequest []byte) bool {
+	if !json.Valid(originalRequest) {
+		return false
+	}
+	return gjson.GetBytes(originalRequest, "stream_options.include_usage").Bool()
 }
 
 // ConvertKiroNonStreamToOpenAI converts Kiro non-streaming response to OpenAI format.
@@ -241,9 +237,23 @@ func ConvertKiroNonStreamToOpenAI(ctx context.Context, model string, originalReq
 	}
 	usageInfo.TotalTokens = usageInfo.InputTokens + usageInfo.OutputTokens
 
-	// Build OpenAI response with reasoning_content support
+	if !openAIIncludeReasoning(originalRequest) {
+		reasoningContent = ""
+	}
+
+	// Build OpenAI response with optional reasoning_content support
 	openaiResponse := BuildOpenAIResponseWithReasoning(content, reasoningContent, toolUses, model, usageInfo, stopReason)
 	return openaiResponse
+}
+
+func openAIIncludeReasoning(originalRequest []byte) bool {
+	if !json.Valid(originalRequest) {
+		return false
+	}
+	if gjson.GetBytes(originalRequest, "include_reasoning").Bool() {
+		return true
+	}
+	return gjson.GetBytes(originalRequest, "stream_options.include_reasoning").Bool()
 }
 
 // ParseClaudeEvent parses a Claude SSE event and returns the event type and data
