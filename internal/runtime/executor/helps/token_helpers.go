@@ -174,8 +174,10 @@ func collectOpenAIContent(content gjson.Result, segments *[]string) {
 			switch partType {
 			case "text", "input_text", "output_text":
 				addIfNotEmpty(segments, part.Get("text").String())
+			case "input_file", "file", "document":
+				collectFileMetadata(part, segments)
 			case "image_url":
-				addIfNotEmpty(segments, part.Get("image_url.url").String())
+				addIfNotEmpty(segments, stripDataURLPayload(part.Get("image_url.url").String()))
 			case "input_audio", "output_audio", "audio":
 				addIfNotEmpty(segments, part.Get("id").String())
 			case "tool_result":
@@ -334,6 +336,8 @@ func collectClaudeContent(content gjson.Result, segments *[]string, imageTokens 
 				if imageTokens != nil {
 					*imageTokens += estimateImageTokens(width, height)
 				}
+			case "document", "file":
+				collectFileMetadata(part, segments)
 			case "tool_use":
 				addIfNotEmpty(segments, part.Get("id").String())
 				addIfNotEmpty(segments, part.Get("name").String())
@@ -401,4 +405,32 @@ func addIfNotEmpty(segments *[]string, value string) {
 	if trimmed := strings.TrimSpace(value); trimmed != "" {
 		*segments = append(*segments, trimmed)
 	}
+}
+
+func collectFileMetadata(part gjson.Result, segments *[]string) {
+	addIfNotEmpty(segments, part.Get("type").String())
+	addIfNotEmpty(segments, part.Get("title").String())
+	addIfNotEmpty(segments, part.Get("name").String())
+	addIfNotEmpty(segments, part.Get("filename").String())
+	addIfNotEmpty(segments, part.Get("file_id").String())
+	addIfNotEmpty(segments, part.Get("file_name").String())
+	addIfNotEmpty(segments, part.Get("mime_type").String())
+	addIfNotEmpty(segments, part.Get("media_type").String())
+	addIfNotEmpty(segments, part.Get("source.media_type").String())
+	addIfNotEmpty(segments, part.Get("source.type").String())
+	addIfNotEmpty(segments, stripDataURLPayload(part.Get("file_url").String()))
+}
+
+func stripDataURLPayload(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" || !strings.HasPrefix(trimmed, "data:") {
+		return trimmed
+	}
+	if idx := strings.Index(trimmed, ";base64,"); idx != -1 {
+		return trimmed[:idx+len(";base64,")]
+	}
+	if idx := strings.Index(trimmed, ","); idx != -1 {
+		return trimmed[:idx+1]
+	}
+	return trimmed
 }

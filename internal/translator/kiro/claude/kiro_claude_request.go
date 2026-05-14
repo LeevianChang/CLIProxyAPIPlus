@@ -68,12 +68,25 @@ type KiroImageSource struct {
 	Bytes string `json:"bytes"` // base64 encoded image data
 }
 
+// KiroDocument represents a document in Kiro API format.
+type KiroDocument struct {
+	Format string             `json:"format"`
+	Name   string             `json:"name,omitempty"`
+	Source KiroDocumentSource `json:"source"`
+}
+
+// KiroDocumentSource contains the document data.
+type KiroDocumentSource struct {
+	Bytes string `json:"bytes"` // base64 encoded document data
+}
+
 // KiroUserInputMessage represents a user message
 type KiroUserInputMessage struct {
 	Content                 string                       `json:"content"`
 	ModelID                 string                       `json:"modelId"`
 	Origin                  string                       `json:"origin"`
 	Images                  []KiroImage                  `json:"images,omitempty"`
+	Documents               []KiroDocument               `json:"documents,omitempty"`
 	UserInputMessageContext *KiroUserInputMessageContext `json:"userInputMessageContext,omitempty"`
 }
 
@@ -190,6 +203,7 @@ func BuildKiroPayload(claudeBody []byte, modelID, profileArn, origin string, isA
 	// Extract system prompt
 	systemPrompt := extractSystemPrompt(claudeBody)
 	systemPrompt = kirocommon.AppendChunkedToolSystemPolicy(systemPrompt)
+	systemPrompt = kirocommon.AppendIdentitySystemPolicy(systemPrompt)
 
 	// Check for thinking mode using the comprehensive IsThinkingEnabledWithHeaders function
 	// This supports Claude API format, OpenAI reasoning_effort, AMP/Cursor format, and Anthropic-Beta header
@@ -651,6 +665,10 @@ func processMessages(messages gjson.Result, modelID, origin string) ([]KiroHisto
 				log.Debugf("kiro: dropping %d image(s) from history user message; Kiro only accepts images on current message", len(userMsg.Images))
 				userMsg.Images = nil
 			}
+			if !isLastMessage && len(userMsg.Documents) > 0 {
+				log.Debugf("kiro: dropping document from history user message; Kiro only accepts document on current message")
+				userMsg.Documents = nil
+			}
 			if isLastMessage {
 				currentUserMsg = &userMsg
 				currentToolResults = toolResults
@@ -818,6 +836,7 @@ func BuildUserMessageStruct(msg gjson.Result, modelID, origin string) (KiroUserI
 	var contentBuilder strings.Builder
 	var toolResults []KiroToolResult
 	var images []KiroImage
+	var document *KiroDocument
 
 	// Track seen toolUseIds to deduplicate
 	seenToolUseIDs := make(map[string]bool)
@@ -844,6 +863,10 @@ func BuildUserMessageStruct(msg gjson.Result, modelID, origin string) (KiroUserI
 							Bytes: data,
 						},
 					})
+				}
+			case "document":
+				if document == nil {
+					document = buildKiroDocumentFromClaudePart(part)
 				}
 			case "tool_result":
 				toolUseID := part.Get("tool_use_id").String()
@@ -901,8 +924,51 @@ func BuildUserMessageStruct(msg gjson.Result, modelID, origin string) (KiroUserI
 	if len(images) > 0 {
 		userMsg.Images = images
 	}
+	if document != nil {
+		userMsg.Documents = []KiroDocument{*document}
+	}
 
 	return userMsg, toolResults
+}
+
+func buildKiroDocumentFromClaudePart(part gjson.Result) *KiroDocument {
+	mediaType := part.Get("source.media_type").String()
+	data := part.Get("source.data").String()
+	if data == "" {
+		return nil
+	}
+	format := documentFormat(mediaType, part.Get("source.type").String())
+	if format == "" {
+		format = documentFormat(part.Get("media_type").String(), "")
+	}
+	if format == "" {
+		format = "pdf"
+	}
+	return &KiroDocument{
+		Format: format,
+		Name:   documentName(part),
+		Source: KiroDocumentSource{Bytes: data},
+	}
+}
+
+func documentFormat(mediaType, sourceType string) string {
+	mediaType = strings.TrimSpace(mediaType)
+	if idx := strings.LastIndex(mediaType, "/"); idx != -1 && idx+1 < len(mediaType) {
+		return strings.TrimPrefix(mediaType[idx+1:], "x-")
+	}
+	if strings.EqualFold(strings.TrimSpace(sourceType), "base64") {
+		return "pdf"
+	}
+	return ""
+}
+
+func documentName(part gjson.Result) string {
+	for _, key := range []string{"title", "name", "filename", "file_name"} {
+		if value := strings.TrimSpace(part.Get(key).String()); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 // BuildAssistantMessageStruct builds an assistant message with tool uses

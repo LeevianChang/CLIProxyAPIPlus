@@ -292,24 +292,37 @@ func summarizeKiroPayloadStructure(payload []byte) string {
 	history := root.Get("conversationState.history")
 	current := root.Get("conversationState.currentMessage.userInputMessage")
 	currentImages := len(current.Get("images").Array())
+	currentDocuments := len(current.Get("documents").Array())
+	if currentDocuments == 0 && current.Get("document").Exists() {
+		currentDocuments = 1
+	}
 	currentToolResults := len(current.Get("userInputMessageContext.toolResults").Array())
 	currentTools := len(current.Get("userInputMessageContext.tools").Array())
 	historyCount := len(history.Array())
 	historyImages := 0
+	historyDocuments := 0
 	historyToolResults := 0
 	historyToolUses := 0
 	history.ForEach(func(_, item gjson.Result) bool {
-		historyImages += len(item.Get("userInputMessage.images").Array())
+		userMessage := item.Get("userInputMessage")
+		historyImages += len(userMessage.Get("images").Array())
+		documents := len(userMessage.Get("documents").Array())
+		if documents == 0 && userMessage.Get("document").Exists() {
+			documents = 1
+		}
+		historyDocuments += documents
 		historyToolResults += len(item.Get("userInputMessage.userInputMessageContext.toolResults").Array())
 		historyToolUses += len(item.Get("assistantResponseMessage.toolUses").Array())
 		return true
 	})
-	return fmt.Sprintf("conversationId=%s model=%s history=%d current_images=%d history_images=%d current_tool_results=%d history_tool_results=%d history_tool_uses=%d current_tools=%d payload_bytes=%d",
+	return fmt.Sprintf("conversationId=%s model=%s history=%d current_images=%d history_images=%d current_documents=%d history_documents=%d current_tool_results=%d history_tool_results=%d history_tool_uses=%d current_tools=%d payload_bytes=%d",
 		root.Get("conversationState.conversationId").String(),
 		current.Get("modelId").String(),
 		historyCount,
 		currentImages,
 		historyImages,
+		currentDocuments,
+		historyDocuments,
 		currentToolResults,
 		historyToolResults,
 		historyToolUses,

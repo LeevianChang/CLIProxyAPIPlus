@@ -2,6 +2,7 @@ package openai
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -28,6 +29,57 @@ func TestBuildKiroPayloadFromOpenAIDropsHistoryImagesKeepsCurrentImages(t *testi
 	}
 	if got := len(payload.ConversationState.CurrentMessage.UserInputMessage.Images); got != 1 {
 		t.Fatalf("current images=%d, want 1", got)
+	}
+}
+
+func TestBuildKiroPayloadFromOpenAIForwardsCurrentDocument(t *testing.T) {
+	input := []byte(`{
+  "model":"gpt-4o",
+  "messages":[
+    {"role":"user","content":[{"type":"text","text":"old document"},{"type":"file","file":{"filename":"old.pdf","file_data":"data:application/pdf;base64,oldpdf"}}]},
+    {"role":"assistant","content":"ok"},
+    {"role":"user","content":[{"type":"text","text":"summarize"},{"type":"file","file":{"filename":"new.pdf","file_data":"data:application/pdf;base64,newpdf"}}]}
+  ]
+}`)
+
+	out, _ := BuildKiroPayloadFromOpenAI(input, "claude-sonnet-4.6", "", "AI_EDITOR", false, false, nil, nil)
+	var payload KiroPayload
+	if err := json.Unmarshal(out, &payload); err != nil {
+		t.Fatalf("unmarshal payload: %v", err)
+	}
+	if len(payload.ConversationState.History[0].UserInputMessage.Documents) != 0 {
+		t.Fatalf("history documents should be empty")
+	}
+	docs := payload.ConversationState.CurrentMessage.UserInputMessage.Documents
+	if len(docs) != 1 {
+		t.Fatalf("current documents length=%d, want 1", len(docs))
+	}
+	doc := docs[0]
+	if doc.Format != "pdf" || doc.Name != "new.pdf" || doc.Source.Bytes != "newpdf" {
+		t.Fatalf("unexpected document: %+v", doc)
+	}
+}
+
+func TestBuildKiroPayloadFromOpenAIInjectsIdentityPolicy(t *testing.T) {
+	input := []byte(`{
+  "model":"gpt-4o",
+  "messages":[
+    {"role":"system","content":"You are helpful."},
+    {"role":"user","content":"hello"}
+  ]
+}`)
+
+	out, _ := BuildKiroPayloadFromOpenAI(input, "claude-sonnet-4.6", "", "AI_EDITOR", false, false, nil, nil)
+	var payload KiroPayload
+	if err := json.Unmarshal(out, &payload); err != nil {
+		t.Fatalf("unmarshal payload: %v", err)
+	}
+	content := payload.ConversationState.CurrentMessage.UserInputMessage.Content
+	if !strings.Contains(content, "You are helpful.") {
+		t.Fatalf("expected original system prompt, got %q", content)
+	}
+	if !strings.Contains(content, "Do not introduce yourself or state which assistant") {
+		t.Fatalf("expected identity policy, got %q", content)
 	}
 }
 

@@ -66,12 +66,25 @@ type KiroImageSource struct {
 	Bytes string `json:"bytes"` // base64 encoded image data
 }
 
+// KiroDocument represents a document in Kiro API format.
+type KiroDocument struct {
+	Format string             `json:"format"`
+	Name   string             `json:"name,omitempty"`
+	Source KiroDocumentSource `json:"source"`
+}
+
+// KiroDocumentSource contains the document data.
+type KiroDocumentSource struct {
+	Bytes string `json:"bytes"` // base64 encoded document data
+}
+
 // KiroUserInputMessage represents a user message
 type KiroUserInputMessage struct {
 	Content                 string                       `json:"content"`
 	ModelID                 string                       `json:"modelId"`
 	Origin                  string                       `json:"origin"`
 	Images                  []KiroImage                  `json:"images,omitempty"`
+	Documents               []KiroDocument               `json:"documents,omitempty"`
 	UserInputMessageContext *KiroUserInputMessageContext `json:"userInputMessageContext,omitempty"`
 }
 
@@ -185,6 +198,7 @@ func BuildKiroPayloadFromOpenAI(openaiBody []byte, modelID, profileArn, origin s
 	// Extract system prompt from messages
 	systemPrompt := extractSystemPromptFromOpenAI(messages)
 	systemPrompt = kirocommon.AppendChunkedToolSystemPolicy(systemPrompt)
+	systemPrompt = kirocommon.AppendIdentitySystemPolicy(systemPrompt)
 
 	// Inject timestamp context
 	timestamp := time.Now().Format("2006-01-02 15:04:05 MST")
@@ -578,6 +592,10 @@ func processOpenAIMessages(messages gjson.Result, modelID, origin string) ([]Kir
 				log.Debugf("kiro-openai: dropping %d image(s) from history user message; Kiro only accepts images on current message", len(userMsg.Images))
 				userMsg.Images = nil
 			}
+			if !isLastMessage && len(userMsg.Documents) > 0 {
+				log.Debugf("kiro-openai: dropping document from history user message; Kiro only accepts document on current message")
+				userMsg.Documents = nil
+			}
 			if isLastMessage {
 				currentUserMsg = &userMsg
 				currentToolResults = toolResults
@@ -764,6 +782,7 @@ func buildUserMessageFromOpenAI(msg gjson.Result, modelID, origin string) (KiroU
 	var contentBuilder strings.Builder
 	var toolResults []KiroToolResult
 	var images []KiroImage
+	var document *KiroDocument
 
 	if content.IsArray() {
 		for _, part := range content.Array() {
@@ -794,6 +813,10 @@ func buildUserMessageFromOpenAI(msg gjson.Result, modelID, origin string) (KiroU
 						}
 					}
 				}
+			case "file", "input_file", "document":
+				if document == nil {
+					document = buildKiroDocumentFromOpenAIPart(part)
+				}
 			}
 		}
 	} else if content.Type == gjson.String {
@@ -809,8 +832,84 @@ func buildUserMessageFromOpenAI(msg gjson.Result, modelID, origin string) (KiroU
 	if len(images) > 0 {
 		userMsg.Images = images
 	}
+	if document != nil {
+		userMsg.Documents = []KiroDocument{*document}
+	}
 
 	return userMsg, toolResults
+}
+
+func buildKiroDocumentFromOpenAIPart(part gjson.Result) *KiroDocument {
+	data := part.Get("file.file_data").String()
+	mediaType := ""
+	if data == "" {
+		data = part.Get("file_data").String()
+		mediaType = part.Get("mime_type").String()
+	}
+	if data == "" {
+		data = part.Get("source.data").String()
+		mediaType = part.Get("source.media_type").String()
+	}
+	if data == "" {
+		return nil
+	}
+	if strings.HasPrefix(data, "data:") {
+		parsedMediaType, parsedData := parseDataURL(data)
+		if parsedData != "" {
+			mediaType = parsedMediaType
+			data = parsedData
+		}
+	}
+	format := documentFormat(mediaType, part.Get("source.type").String())
+	if format == "" {
+		format = documentFormatFromName(documentName(part))
+	}
+	if format == "" {
+		format = "pdf"
+	}
+	return &KiroDocument{
+		Format: format,
+		Name:   documentName(part),
+		Source: KiroDocumentSource{Bytes: data},
+	}
+}
+
+func parseDataURL(value string) (string, string) {
+	if !strings.HasPrefix(value, "data:") {
+		return "", ""
+	}
+	idx := strings.Index(value, ";base64,")
+	if idx == -1 {
+		return "", ""
+	}
+	return value[5:idx], value[idx+len(";base64,"):]
+}
+
+func documentFormat(mediaType, sourceType string) string {
+	mediaType = strings.TrimSpace(mediaType)
+	if idx := strings.LastIndex(mediaType, "/"); idx != -1 && idx+1 < len(mediaType) {
+		return strings.TrimPrefix(mediaType[idx+1:], "x-")
+	}
+	if strings.EqualFold(strings.TrimSpace(sourceType), "base64") {
+		return "pdf"
+	}
+	return ""
+}
+
+func documentFormatFromName(name string) string {
+	if idx := strings.LastIndex(name, "."); idx != -1 && idx+1 < len(name) {
+		return strings.ToLower(strings.TrimSpace(name[idx+1:]))
+	}
+	return ""
+}
+
+func documentName(part gjson.Result) string {
+	for _, key := range []string{"file.filename", "filename", "file_name", "title", "name"} {
+		if value := strings.TrimSpace(part.Get(key).String()); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 // buildAssistantMessageFromOpenAI builds an assistant message from OpenAI format

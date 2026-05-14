@@ -3,14 +3,22 @@ package common
 import "strings"
 
 func AppendChunkedToolSystemPolicy(systemPrompt string) string {
+	return appendSystemPolicy(systemPrompt, KiroChunkedToolSystemPolicy)
+}
+
+func AppendIdentitySystemPolicy(systemPrompt string) string {
+	return appendSystemPolicy(systemPrompt, KiroIdentitySystemPolicy)
+}
+
+func appendSystemPolicy(systemPrompt, policy string) string {
 	systemPrompt = strings.TrimSpace(systemPrompt)
-	if strings.Contains(systemPrompt, KiroChunkedToolSystemPolicy) {
+	if strings.Contains(systemPrompt, policy) {
 		return systemPrompt
 	}
 	if systemPrompt == "" {
-		return KiroChunkedToolSystemPolicy
+		return policy
 	}
-	return systemPrompt + "\n" + KiroChunkedToolSystemPolicy
+	return systemPrompt + "\n" + policy
 }
 
 func AppendChunkedToolDescriptionPolicy(name, description string) string {

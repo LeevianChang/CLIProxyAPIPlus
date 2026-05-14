@@ -20,6 +20,21 @@ func TestAppendChunkedToolSystemPolicy(t *testing.T) {
 	}
 }
 
+func TestAppendIdentitySystemPolicy(t *testing.T) {
+	out := AppendIdentitySystemPolicy("You are helpful.")
+	if !strings.Contains(out, "You are helpful.") {
+		t.Fatalf("expected original prompt, got %q", out)
+	}
+	if !strings.Contains(out, KiroIdentitySystemPolicy) {
+		t.Fatalf("expected identity policy, got %q", out)
+	}
+
+	again := AppendIdentitySystemPolicy(out)
+	if strings.Count(again, KiroIdentitySystemPolicy) != 1 {
+		t.Fatalf("expected policy once, got %q", again)
+	}
+}
+
 func TestAppendChunkedToolDescriptionPolicy(t *testing.T) {
 	writeDesc := AppendChunkedToolDescriptionPolicy("Write", "Writes files")
 	if !strings.Contains(writeDesc, KiroWriteToolDescriptionSuffix) {

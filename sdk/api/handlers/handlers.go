@@ -957,6 +957,10 @@ func collectOpenAIContentSegments(content gjson.Result, segments *[]string) {
 			switch partType {
 			case "text", "input_text", "output_text":
 				addSegment(segments, part.Get("text").String())
+			case "input_file", "file", "document":
+				collectFileMetadataSegments(part, segments)
+			case "image_url":
+				addSegment(segments, stripDataURLPayload(part.Get("image_url.url").String()))
 			case "tool_result":
 				collectOpenAIContentSegments(part.Get("content"), segments)
 			default:
@@ -1009,6 +1013,8 @@ func collectClaudeContentSegments(content gjson.Result, segments *[]string) {
 			switch part.Get("type").String() {
 			case "text":
 				addSegment(segments, part.Get("text").String())
+			case "document", "file":
+				collectFileMetadataSegments(part, segments)
 			case "tool_use":
 				addSegment(segments, part.Get("id").String())
 				addSegment(segments, part.Get("name").String())
@@ -1041,6 +1047,34 @@ func addSegment(segments *[]string, value string) {
 	if trimmed := strings.TrimSpace(value); trimmed != "" {
 		*segments = append(*segments, trimmed)
 	}
+}
+
+func collectFileMetadataSegments(part gjson.Result, segments *[]string) {
+	addSegment(segments, part.Get("type").String())
+	addSegment(segments, part.Get("title").String())
+	addSegment(segments, part.Get("name").String())
+	addSegment(segments, part.Get("filename").String())
+	addSegment(segments, part.Get("file_id").String())
+	addSegment(segments, part.Get("file_name").String())
+	addSegment(segments, part.Get("mime_type").String())
+	addSegment(segments, part.Get("media_type").String())
+	addSegment(segments, part.Get("source.media_type").String())
+	addSegment(segments, part.Get("source.type").String())
+	addSegment(segments, stripDataURLPayload(part.Get("file_url").String()))
+}
+
+func stripDataURLPayload(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" || !strings.HasPrefix(trimmed, "data:") {
+		return trimmed
+	}
+	if idx := strings.Index(trimmed, ";base64,"); idx != -1 {
+		return trimmed[:idx+len(";base64,")]
+	}
+	if idx := strings.Index(trimmed, ","); idx != -1 {
+		return trimmed[:idx+1]
+	}
+	return trimmed
 }
 
 func cloneHeader(src http.Header) http.Header {

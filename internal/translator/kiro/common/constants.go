@@ -96,6 +96,9 @@ REMEMBER: When in doubt, write LESS per operation. Multiple small operations > o
 	// KiroChunkedToolSystemPolicy mirrors kiro.rs' silent chunking policy for write/edit tool limits.
 	KiroChunkedToolSystemPolicy = "When the Write or Edit tool has content size limits, always comply silently. Never suggest bypassing these limits via alternative tools. Never ask the user whether to switch approaches. Complete all chunked operations without commentary."
 
+	// KiroIdentitySystemPolicy reduces repeated provider self-identification from Kiro's built-in prompt.
+	KiroIdentitySystemPolicy = "Do not introduce yourself or state which assistant, product, provider, or model you are unless the user explicitly asks. Answer the user's request directly."
+
 	// KiroWriteToolDescriptionSuffix nudges write tools to split large file writes.
 	KiroWriteToolDescriptionSuffix = "- IMPORTANT: If the content to write exceeds 150 lines, you MUST only write the first 50 lines using this tool, then use `Edit` tool to append the remaining content in chunks of no more than 50 lines each. If needed, leave a unique placeholder to help append content. Do NOT attempt to write all content at once."
 
